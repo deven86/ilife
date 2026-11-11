@@ -1,0 +1,9 @@
+*.xcodeproj/
+xcuserdata/
+DerivedData/
+build/
+.DS_Store
+fastlane/report.xml
+*.p8
+*.p12
+*.mobileprovision
