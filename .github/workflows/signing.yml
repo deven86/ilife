@@ -29,7 +29,11 @@ jobs:
       - name: Prepare credentials (runner only)
         run: |
           mkdir -p "$RUNNER_TEMP/keys"
-          echo "${{ secrets.ASC_KEY_P8_BASE64 }}" | base64 --decode > "$RUNNER_TEMP/keys/AuthKey.p8"
+          printf '%s' "${{ secrets.ASC_KEY_P8_BASE64 }}" > "$RUNNER_TEMP/keys/raw"
+          if grep -q "BEGIN PRIVATE KEY" "$RUNNER_TEMP/keys/raw"; then cp "$RUNNER_TEMP/keys/raw" "$RUNNER_TEMP/keys/AuthKey.p8"; else tr -d ' \r\n' < "$RUNNER_TEMP/keys/raw" | base64 --decode > "$RUNNER_TEMP/keys/AuthKey.p8"; fi
+          rm -f "$RUNNER_TEMP/keys/raw"
+          for s in TEAM_ID ASC_KEY_ID ASC_ISSUER_ID; do [ -n "${!s}" ] || echo "::error title=secret::Repository secret for $s is empty (APPLE_TEAM_ID / ASC_KEY_ID / ASC_ISSUER_ID)"; done
+          grep -q "BEGIN PRIVATE KEY" "$RUNNER_TEMP/keys/AuthKey.p8" || { echo "::error title=secret::ASC_KEY_P8_BASE64 is empty or not a valid .p8 key"; exit 1; }
           echo "ASC_KEY_PATH=$RUNNER_TEMP/keys/AuthKey.p8" >> "$GITHUB_ENV"
           PW=$(printf '%s' "${{ secrets.ASC_KEY_P8_BASE64 }}" | shasum -a 256 | cut -d' ' -f1)
           echo "::add-mask::$PW"
