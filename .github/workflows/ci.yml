@@ -1,10 +1,8 @@
 name: CI
 
 # Compile check on the iOS Simulator (no signing, no upload).
-# Runs on every push to main so you see build errors before spending a TestFlight run.
+# Private repo: Mac minutes are shared with VISION and Third Eye, so this runs only on PRs or by hand.
 on:
-  push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
 

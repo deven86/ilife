@@ -42,7 +42,7 @@ food photo / barcode logging, AI weekly insights, PDF health report export.
 5. **App Store Connect** → My Apps → + New App → bundle `com.jondhale.ilife`, name e.g. "iLife Health" (plain "iLife" is likely taken).
 6. Actions → **TestFlight** → Run, type `UPLOAD`.
 
-`CI` runs on every push to `main` and only compiles for the Simulator — check it's green before uploading.
+`CI` compiles for the Simulator only; it runs on PRs or by hand (Mac minutes are shared with VISION and Third Eye).
 
 ## Data & privacy
 All data lives in SwiftData on the device and your **private** iCloud database. Nothing is sent to any server.
