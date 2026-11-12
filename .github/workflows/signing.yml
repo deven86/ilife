@@ -56,8 +56,8 @@ jobs:
           status=$?
           set -e
           tail -80 "$RUNNER_TEMP/fastlane.log"
-          grep -E "✔|Successfully|Data Protection|Registering|Installed|profile|REVOKED|enabled|could not enable" "$RUNNER_TEMP/fastlane.log" | tail -20 | cut -c1-600 \
-            | while IFS= read -r line; do echo "::notice title=signing::$line"; done
+          grep -E "REVOKED|enabled|could not enable" "$RUNNER_TEMP/fastlane.log" | cut -c1-600 \
+            | while IFS= read -r line; do echo "::warning title=capability::$line"; done
           if [ $status -ne 0 ]; then
             grep -iE "error|fail|maximum|limit|not found|invalid|denied|\[!\]" "$RUNNER_TEMP/fastlane.log" | tail -10 | cut -c1-900 \
               | while IFS= read -r line; do echo "::error title=signing::$line"; done
