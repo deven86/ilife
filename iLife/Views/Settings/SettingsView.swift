@@ -114,7 +114,7 @@ struct SettingsView: View {
             }
         }
         .task {
-            let status = try? await CKContainer(identifier: "iCloud.com.jondhale.ilife").accountStatus()
+            let status = try? await CKContainer(identifier: "iCloud.group.com.jondhale.ilife").accountStatus()
             iCloudStatus = status == .available ? "On" : "Sign in to iCloud"
         }
     }

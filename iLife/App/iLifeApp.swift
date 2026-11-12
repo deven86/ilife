@@ -15,7 +15,7 @@ struct iLifeApp: App {
     init() {
         let schema = Schema(ILifeSchema.models)
         // Private iCloud database — syncs iPhone ⇄ iPad automatically.
-        let cloud = ModelConfiguration(schema: schema, cloudKitDatabase: .private("iCloud.com.jondhale.ilife"))
+        let cloud = ModelConfiguration(schema: schema, cloudKitDatabase: .private("iCloud.group.com.jondhale.ilife"))
         if let c = try? ModelContainer(for: schema, configurations: cloud) {
             container = c
         } else {

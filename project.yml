@@ -72,7 +72,7 @@ targets:
         com.apple.security.application-groups:
           - group.com.jondhale.ilife
         com.apple.developer.icloud-container-identifiers:
-          - iCloud.com.jondhale.ilife
+          - iCloud.group.com.jondhale.ilife
         com.apple.developer.icloud-services:
           - CloudKit
         aps-environment: production

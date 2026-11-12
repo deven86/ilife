@@ -33,7 +33,7 @@ food photo / barcode logging, AI weekly insights, PDF health report export.
    `APPLE_TEAM_ID`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8_BASE64`.
 2. **developer.apple.com → Identifiers** (the API can't do these):
    - App Groups → create `group.com.jondhale.ilife`
-   - iCloud Containers → create `iCloud.com.jondhale.ilife`
+   - iCloud Containers → create `iCloud.group.com.jondhale.ilife`
 3. Actions → **Signing setup** → Run. This registers `com.jondhale.ilife` and `com.jondhale.ilife.widgets`
    and enables HealthKit, iCloud, Push, App Groups, Data Protection.
 4. developer.apple.com → Identifiers → `com.jondhale.ilife`: tick the App Group and iCloud container,

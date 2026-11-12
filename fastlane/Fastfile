@@ -6,7 +6,7 @@
 #
 # Manual, one-time steps in developer.apple.com (the API can't do these):
 #   • App Group  group.com.jondhale.ilife      → assign to both App IDs
-#   • iCloud container iCloud.com.jondhale.ilife → assign to com.jondhale.ilife
+#   • iCloud container iCloud.group.com.jondhale.ilife → assign to com.jondhale.ilife
 #   • App Services → MusicKit                  → enable on com.jondhale.ilife
 # Then run "Signing setup" with force = true so the profiles pick them up.
 
