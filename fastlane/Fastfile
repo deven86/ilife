@@ -58,6 +58,16 @@ platform :ios do
   lane :signing_setup do
     setup_ci
     asc_api_key
+    revoke = ENV["REVOKE_CERT"].to_s.strip
+    unless revoke.empty?
+      cert = Spaceship::ConnectAPI::Certificate.all.find { |c| c.id == revoke }
+      if cert.nil?
+        UI.important("REVOKED: certificate #{revoke} not found (already removed?)")
+      else
+        cert.delete!
+        UI.success("REVOKED certificate #{revoke} (#{cert.certificate_type}, expires #{cert.expiration_date})")
+      end
+    end
     APP_IDS.each do |identifier|
       bundle = Spaceship::ConnectAPI::BundleId.find(identifier)
       if bundle.nil?
