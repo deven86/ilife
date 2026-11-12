@@ -80,7 +80,7 @@ jobs:
           set -e
           tail -40 "$RUNNER_TEMP/archive.log"
           if [ $status -ne 0 ]; then
-            grep -E "error:|error -|: error|requires a proilifeing profile|No profiles|No Account|No signing certificate|maximum number|Proilifeing profile" "$RUNNER_TEMP/archive.log" \
+            grep -E "error:|error -|: error|requires a provisioning profile|No profiles|No Account|No signing certificate|maximum number|Provisioning profile" "$RUNNER_TEMP/archive.log" \
               | sort -u | tail -10 | cut -c1-900 | while IFS= read -r line; do echo "::error title=archive::$line"; done
             exit $status
           fi
@@ -93,7 +93,7 @@ jobs:
             -archivePath "$RUNNER_TEMP/iLife.xcarchive" \
             -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
             -exportPath "$RUNNER_TEMP/export" \
-            -allowProilifeingUpdates \
+            -allowProvisioningUpdates \
             -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey.p8" \
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" > "$RUNNER_TEMP/export.log" 2>&1

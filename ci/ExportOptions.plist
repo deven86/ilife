@@ -10,7 +10,7 @@
     <string>manual</string>
     <key>teamID</key>
     <string>__TEAM_ID__</string>
-    <key>proilifeingProfiles</key>
+    <key>provisioningProfiles</key>
     <dict>
         <key>com.jondhale.ilife</key>
         <string>match AppStore com.jondhale.ilife</string>
