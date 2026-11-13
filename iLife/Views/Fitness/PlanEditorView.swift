@@ -12,12 +12,29 @@ struct PlanEditorView: View {
     @State private var minutes = 45
     @State private var weekdays: Set<Int> = []
     @State private var items: [DraftExercise] = []
+    @State private var cover: Data?
 
-    struct DraftExercise: Identifiable { let id = UUID(); var name: String; var sets: Int; var reps: String; var rest: Int }
+    struct DraftExercise: Identifiable {
+        let id = UUID()
+        var name: String; var sets: Int; var reps: String; var rest: Int
+        var equipment: String = ""
+        var photo: Data? = nil
+    }
 
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    HStack(spacing: 14) {
+                        ItemThumbnail(photo: cover, illustration: .exercise(focus), size: 72, corner: 14)
+                        VStack(alignment: .leading, spacing: 6) {
+                            PhotoSourceButton(onPick: { cover = ImageTools.jpeg($0, maxSide: 1400) }) {
+                                Label(cover == nil ? "Add cover photo" : "Change cover photo", systemImage: "photo")
+                            }
+                            if cover != nil { Button("Remove", role: .destructive) { cover = nil }.font(.caption) }
+                        }
+                    }
+                }
                 Section("Plan") {
                     TextField("Name (e.g. Push Day)", text: $name)
                     Picker("Focus", selection: $focus) {
@@ -44,7 +61,24 @@ struct PlanEditorView: View {
                 Section("Exercises") {
                     ForEach($items) { $item in
                         VStack(alignment: .leading) {
-                            TextField("Exercise", text: $item.name).font(.headline)
+                            HStack(spacing: 12) {
+                                PhotoSourceButton(onPick: { item.photo = ImageTools.jpeg($0, maxSide: 1000) }) {
+                                    ItemThumbnail(photo: item.photo, illustration: .exercise(item.name, equipment: item.equipment), size: 56, corner: 12)
+                                        .overlay(alignment: .bottomTrailing) {
+                                            Image(systemName: "camera.circle.fill").font(.callout).foregroundStyle(.white, .black.opacity(0.6)).offset(x: 4, y: 4)
+                                        }
+                                }
+                                .buttonStyle(.plain)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    TextField("Exercise", text: $item.name).font(.headline)
+                                    Picker("Equipment", selection: $item.equipment) {
+                                        ForEach(Equipment.all, id: \.self) { e in
+                                            Label(e.isEmpty ? "No equipment" : e, systemImage: Equipment.symbol(e)).tag(e)
+                                        }
+                                    }
+                                    .pickerStyle(.menu).labelsHidden().font(.caption)
+                                }
+                            }
                             HStack {
                                 Stepper("\(item.sets) sets", value: $item.sets, in: 1...10)
                                 TextField("Reps", text: $item.reps).frame(width: 60).textFieldStyle(.roundedBorder)
@@ -73,7 +107,8 @@ struct PlanEditorView: View {
         guard let plan else { return }
         name = plan.name; focus = plan.focus; level = plan.level; minutes = plan.estimatedMinutes
         weekdays = Set(plan.weekdays)
-        items = plan.orderedExercises.map { .init(name: $0.name, sets: $0.sets, reps: $0.reps, rest: $0.restSeconds) }
+        cover = plan.coverPhoto
+        items = plan.orderedExercises.map { .init(name: $0.name, sets: $0.sets, reps: $0.reps, rest: $0.restSeconds, equipment: $0.equipment, photo: $0.photo) }
     }
 
     private func save() {
@@ -81,9 +116,12 @@ struct PlanEditorView: View {
         if plan == nil { context.insert(target) }
         target.name = name; target.focus = focus; target.level = level
         target.estimatedMinutes = minutes; target.weekdays = weekdays.sorted()
+        target.coverPhoto = cover
         (target.exercises ?? []).forEach { context.delete($0) }
         for (i, d) in items.enumerated() where !d.name.isEmpty {
             let e = PlanExercise(name: d.name, sets: d.sets, reps: d.reps, restSeconds: d.rest, order: i)
+            e.equipment = d.equipment
+            e.photo = d.photo
             e.plan = target
             context.insert(e)
         }
@@ -113,10 +151,45 @@ enum PlanTemplates {
             context.insert(p)
             for (i, e) in t.5.enumerated() {
                 let ex = PlanExercise(name: e.0, sets: e.1, reps: e.2, restSeconds: 60, order: i)
+                ex.equipment = Equipment.guess(for: e.0)
                 ex.plan = p
                 context.insert(ex)
             }
         }
         try? context.save()
+    }
+}
+
+enum Equipment {
+    static let all = ["", "Barbell", "Dumbbells", "Kettlebell", "Cable Machine", "Machine", "Smith Machine", "Bench",
+                      "Pull-up Bar", "Resistance Band", "Medicine Ball", "TRX", "Yoga Mat", "Treadmill", "Cycle", "Rowing Machine", "Skipping Rope"]
+
+    static func symbol(_ e: String) -> String {
+        switch e {
+        case "Barbell", "Dumbbells", "Smith Machine": "dumbbell.fill"
+        case "Kettlebell": "figure.cross.training"
+        case "Cable Machine", "Machine": "gearshape.2.fill"
+        case "Bench": "bed.double.fill"
+        case "Pull-up Bar": "figure.play"
+        case "Resistance Band", "TRX": "point.topleft.down.to.point.bottomright.curvepath"
+        case "Medicine Ball": "basketball.fill"
+        case "Yoga Mat": "rectangle.portrait.fill"
+        case "Treadmill": "figure.run"
+        case "Cycle": "bicycle"
+        case "Rowing Machine": "figure.rower"
+        case "Skipping Rope": "figure.jumprope"
+        default: "figure.stand"
+        }
+    }
+
+    static func guess(for exercise: String) -> String {
+        let n = exercise.lowercased()
+        if n.contains("dumbbell") || n.contains("hammer") || n.contains("goblet") || n.contains("lateral") { return "Dumbbells" }
+        if n.contains("kettlebell") { return "Kettlebell" }
+        if n.contains("cable") || n.contains("pushdown") || n.contains("face pull") || n.contains("pulldown") || n.contains("row") && n.contains("seated") { return "Cable Machine" }
+        if n.contains("leg press") || n.contains("leg curl") || n.contains("calf") { return "Machine" }
+        if n.contains("bench") || n.contains("squat") || n.contains("deadlift") || n.contains("press") || n.contains("barbell") || n.contains("curl") { return "Barbell" }
+        if n.contains("yoga") || n.contains("salutation") || n.contains("pose") || n.contains("dog") || n.contains("warrior") || n.contains("savasana") || n.contains("plank") { return "Yoga Mat" }
+        return ""
     }
 }

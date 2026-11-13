@@ -95,7 +95,7 @@ struct FitnessView: View {
             ForEach(plans) { plan in
                 PlanCard(plan: plan, onEdit: { editingPlan = plan }, onStart: {
                     session.start(name: plan.name, category: plan.focus.contains("HIIT") ? "HIIT" : plan.focus.contains("Yoga") ? "Yoga" : "Strength",
-                                  exercises: plan.orderedExercises.map(\.name))
+                                  exercises: plan.orderedExercises.map(\.name), photos: plan.orderedExercises.map(\.photo), equipment: plan.orderedExercises.map(\.equipment))
                 })
             }
         }
@@ -137,7 +137,12 @@ struct PlanCard: View {
     let onStart: () -> Void
     private let symbols = Calendar.current.veryShortWeekdaySymbols
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
+            if let data = plan.coverPhoto, let img = UIImage(data: data) {
+                Image(uiImage: img).resizable().scaledToFill()
+                    .frame(height: 130).frame(maxWidth: .infinity).clipped()
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
             HStack {
                 VStack(alignment: .leading) {
                     Text(plan.name).font(.headline)
@@ -152,7 +157,19 @@ struct PlanCard: View {
                         .background(plan.weekdays.contains(d) ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.white.opacity(0.1)), in: Circle())
                 }
             }
-            Text(plan.orderedExercises.prefix(5).map(\.name).joined(separator: " · ")).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(plan.orderedExercises) { ex in
+                        VStack(spacing: 4) {
+                            ItemThumbnail(photo: ex.photo, illustration: .exercise(ex.name, equipment: ex.equipment), size: 60, corner: 12)
+                            Text(ex.name).font(.caption2).lineLimit(2).multilineTextAlignment(.center).frame(width: 68)
+                            if !ex.equipment.isEmpty {
+                                Text(ex.equipment).font(.system(size: 9)).foregroundStyle(.secondary).lineLimit(1).frame(width: 68)
+                            }
+                        }
+                    }
+                }
+            }
         }
         .glassCard()
         .onTapGesture(perform: onEdit)

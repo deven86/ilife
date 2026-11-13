@@ -6,11 +6,13 @@ struct HealthHubView: View {
     @Query(sort: \InBodyScan.date, order: .reverse) private var scans: [InBodyScan]
     @Query private var docs: [MedicalDocument]
     @Query private var contacts: [EmergencyContact]
+    @Query(sort: \ProgressPhoto.date, order: .reverse) private var progress: [ProgressPhoto]
     @State private var showImport = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
+                TransformationCard(photos: progress)
                 inBodyCard
                 if scans.count > 1 { trendCard }
                 NavigationLink { InBodyListView() } label: {

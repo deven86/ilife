@@ -11,6 +11,7 @@ struct NutritionView: View {
 
     @State private var day = Date.now
     @State private var addMeal: MealType?
+    @State private var editing: FoodEntry?
 
     private var profile: HealthProfile { profiles.first ?? HealthProfile() }
     private var dayFoods: [FoodEntry] { foods.filter { Calendar.current.isDate($0.date, inSameDayAs: day) } }
@@ -31,13 +32,23 @@ struct NutritionView: View {
 
                 breakdown
                 water
-                ForEach(MealType.allCases) { meal in mealSection(meal) }
+                ForEach(visibleMeals) { meal in mealSection(meal) }
+                Spacer(minLength: 70)
             }
             .padding()
         }
         .iLifeScreen()
         .navigationTitle("Nutrition & Diet")
         .sheet(item: $addMeal) { AddFoodSheet(meal: $0, date: day) }
+        .sheet(item: $editing) { EditFoodSheet(entry: $0) }
+        .overlay(alignment: .bottomTrailing) {
+            Button { addMeal = Calendar.current.isDateInToday(day) ? MealType.suggested() : .other } label: {
+                Label("Log Food", systemImage: "plus").font(.headline).padding(.horizontal, 20).padding(.vertical, 14)
+            }
+            .buttonStyle(.borderedProminent).buttonBorderShape(.capsule)
+            .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
+            .padding(.trailing, 20).padding(.bottom, 12)
+        }
     }
 
     private var breakdown: some View {
@@ -97,26 +108,41 @@ struct NutritionView: View {
         .glassCard()
     }
 
+    /// Core meals always show; extra types (Early Morning, Drinks, Pre/Post-Workout, Other) show once used.
+    private var visibleMeals: [MealType] {
+        MealType.allCases.filter { $0.isCore || dayFoods.contains(where: { f in f.meal == $0 }) }
+    }
+
     private func mealSection(_ meal: MealType) -> some View {
-        let items = dayFoods.filter { $0.meal == meal }
-        return VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Label(meal.title, systemImage: meal.icon).font(.headline)
-                Spacer()
-                Text("\(Int(items.reduce(0) { $0 + $1.calories })) kcal").font(.caption).foregroundStyle(.secondary)
-                Button { addMeal = meal } label: { Image(systemName: "plus.circle.fill").font(.title3) }
-            }
-            ForEach(items) { item in
+        let items = dayFoods.filter { $0.meal == meal }.sorted { $0.date < $1.date }
+        return VStack(alignment: .leading, spacing: 10) {
+            Button { addMeal = meal } label: {
                 HStack {
-                    VStack(alignment: .leading) {
+                    Label(meal.title, systemImage: meal.icon).font(.headline)
+                    Spacer()
+                    Text("\(Int(items.reduce(0) { $0 + $1.calories })) kcal").font(.caption).foregroundStyle(.secondary)
+                    Image(systemName: "plus.circle.fill").font(.title2).foregroundStyle(.tint)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            ForEach(items) { item in
+                HStack(spacing: 12) {
+                    ItemThumbnail(photo: item.photo, illustration: .food(item.name), size: 44, corner: 10)
+                    VStack(alignment: .leading, spacing: 2) {
                         Text(item.name).font(.subheadline)
-                        Text("P \(Int(item.protein))g · C \(Int(item.carbs))g · F \(Int(item.fat))g\(item.quantity.isEmpty ? "" : " · \(item.quantity)")")
+                        Text("\(item.date.formatted(date: .omitted, time: .shortened)) · P \(Int(item.protein))g · C \(Int(item.carbs))g · F \(Int(item.fat))g\(item.quantity.isEmpty ? "" : " · \(item.quantity)")")
                             .font(.caption2).foregroundStyle(.secondary)
                     }
                     Spacer()
                     Text("\(Int(item.calories))").font(.subheadline.bold())
                 }
-                .contextMenu { Button("Delete", role: .destructive) { context.delete(item) } }
+                .contentShape(Rectangle())
+                .onTapGesture { editing = item }
+                .contextMenu {
+                    Button("Edit", systemImage: "pencil") { editing = item }
+                    Button("Delete", systemImage: "trash", role: .destructive) { context.delete(item) }
+                }
             }
         }
         .glassCard()
@@ -153,12 +179,41 @@ enum FoodLibrary {
         .init(name: "Vegetable Sabzi", serving: "1 bowl", kcal: 150, p: 4, c: 15, f: 8),
         .init(name: "Tea with milk & sugar", serving: "1 cup", kcal: 70, p: 2, c: 10, f: 2),
         .init(name: "Black Coffee", serving: "1 cup", kcal: 5, p: 0.3, c: 0, f: 0),
+        .init(name: "Coffee with milk", serving: "1 cup", kcal: 60, p: 3, c: 6, f: 2.5),
+        .init(name: "Green Tea", serving: "1 cup", kcal: 2, p: 0, c: 0, f: 0),
+        .init(name: "Black Tea (no sugar)", serving: "1 cup", kcal: 2, p: 0, c: 0.5, f: 0),
+        .init(name: "Lemon Water", serving: "1 glass", kcal: 10, p: 0, c: 3, f: 0),
+        .init(name: "Coconut Water", serving: "1 glass", kcal: 45, p: 0.5, c: 9, f: 0.5),
+        .init(name: "Buttermilk / Chaas", serving: "1 glass", kcal: 40, p: 3, c: 5, f: 1),
+        .init(name: "Protein Shake (whey + milk)", serving: "1 glass", kcal: 240, p: 30, c: 13, f: 7.5),
+        .init(name: "Fresh Orange Juice", serving: "1 glass", kcal: 110, p: 2, c: 26, f: 0.5),
+        .init(name: "Soaked Almonds", serving: "5 pieces", kcal: 35, p: 1.3, c: 1.2, f: 3),
+        .init(name: "Paratha (plain)", serving: "1 medium", kcal: 260, p: 5, c: 36, f: 10),
+        .init(name: "Brown Bread", serving: "2 slices", kcal: 140, p: 6, c: 24, f: 2),
+        .init(name: "Peanut Butter", serving: "1 tbsp", kcal: 95, p: 4, c: 3, f: 8),
+        .init(name: "Greek Yogurt", serving: "100 g", kcal: 60, p: 10, c: 4, f: 0.4),
+        .init(name: "Rajma (cooked)", serving: "1 bowl", kcal: 210, p: 13, c: 35, f: 1),
+        .init(name: "Chole (cooked)", serving: "1 bowl", kcal: 270, p: 12, c: 40, f: 7),
+        .init(name: "Khichdi", serving: "1 bowl", kcal: 250, p: 9, c: 40, f: 6),
+        .init(name: "Papaya", serving: "1 cup", kcal: 60, p: 0.7, c: 15, f: 0.2),
     ]
 }
 
 struct AddFoodSheet: View {
-    let meal: MealType
     let date: Date
+    @State private var meal: MealType
+    @State private var time: Date
+    @State private var photo: UIImage?
+
+    init(meal: MealType, date: Date) {
+        self.date = date
+        _meal = State(initialValue: meal)
+        let cal = Calendar.current
+        let t = cal.isDateInToday(date) ? Date.now
+            : cal.date(bySettingHour: cal.component(.hour, from: .now), minute: cal.component(.minute, from: .now), second: 0, of: date) ?? date
+        _time = State(initialValue: t)
+    }
+
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
     @State private var search = ""
@@ -179,7 +234,22 @@ struct AddFoodSheet: View {
         NavigationStack {
             Form {
                 Section {
+                    Picker("Meal", selection: $meal) {
+                        ForEach(MealType.allCases) { Label($0.title, systemImage: $0.icon).tag($0) }
+                    }
+                    DatePicker("Time", selection: $time, displayedComponents: .hourAndMinute)
                     Stepper("Servings: \(servings.clean)", value: $servings, in: 0.5...10, step: 0.5)
+                    HStack {
+                        if let photo {
+                            Image(uiImage: photo).resizable().scaledToFill().frame(width: 52, height: 52).clipShape(RoundedRectangle(cornerRadius: 10))
+                        }
+                        PhotoSourceButton(onPick: { photo = $0 }) {
+                            Label(photo == nil ? "Add a photo of your food" : "Change photo", systemImage: "camera.fill")
+                        }
+                        if photo != nil { Spacer(); Button("Remove", role: .destructive) { photo = nil }.font(.caption) }
+                    }
+                } footer: {
+                    Text("Log anything at any time — pick the meal it belongs to.")
                 }
                 Section("Quick add") {
                     ForEach(filtered) { item in
@@ -187,7 +257,8 @@ struct AddFoodSheet: View {
                             save(name: item.name, qty: "\(servings.clean) × \(item.serving)", kcal: item.kcal * servings,
                                  p: item.p * servings, c: item.c * servings, f: item.f * servings)
                         } label: {
-                            HStack {
+                            HStack(spacing: 12) {
+                                ItemThumbnail(photo: nil, illustration: .food(item.name), size: 40, corner: 9)
                                 VStack(alignment: .leading) {
                                     Text(item.name)
                                     Text(item.serving).font(.caption).foregroundStyle(.secondary)
@@ -212,17 +283,66 @@ struct AddFoodSheet: View {
                 }
             }
             .searchable(text: $search, prompt: "Search foods")
-            .navigationTitle("Add to \(meal.title)")
+            .navigationTitle("Log Food")
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } } }
         }
     }
 
     private func save(name: String, qty: String, kcal: Double, p: Double, c: Double, f: Double) {
-        let entryDate = Calendar.current.isDateInToday(date) ? Date.now : date
-        let entry = FoodEntry(name: name, meal: meal, calories: kcal, protein: p, carbs: c, fat: f, quantity: qty, date: entryDate)
+        let entry = FoodEntry(name: name, meal: meal, calories: kcal, protein: p, carbs: c, fat: f, quantity: qty, date: time)
+        if let photo { entry.photo = ImageTools.jpeg(photo, maxSide: 1200) }
         context.insert(entry)
         try? context.save()
         Task { await HealthKitManager.shared.saveFood(entry) }
         dismiss()
+    }
+}
+
+struct EditFoodSheet: View {
+    @Bindable var entry: FoodEntry
+    @Environment(\.modelContext) private var context
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    HStack(spacing: 14) {
+                        ItemThumbnail(photo: entry.photo, illustration: .food(entry.name), size: 72, corner: 14)
+                        VStack(alignment: .leading, spacing: 8) {
+                            PhotoSourceButton(onPick: { entry.photo = ImageTools.jpeg($0, maxSide: 1200) }) {
+                                Label(entry.photo == nil ? "Add photo" : "Change photo", systemImage: "camera.fill")
+                            }
+                            if entry.photo != nil { Button("Remove photo", role: .destructive) { entry.photo = nil }.font(.caption) }
+                        }
+                    }
+                }
+                Section("Food") {
+                    TextField("Name", text: $entry.name)
+                    TextField("Quantity", text: $entry.quantity)
+                    Picker("Meal", selection: Binding(get: { entry.meal }, set: { entry.meal = $0 })) {
+                        ForEach(MealType.allCases) { Label($0.title, systemImage: $0.icon).tag($0) }
+                    }
+                    DatePicker("Time", selection: $entry.date)
+                }
+                Section("Nutrition") {
+                    number("Calories (kcal)", $entry.calories)
+                    number("Protein (g)", $entry.protein)
+                    number("Carbs (g)", $entry.carbs)
+                    number("Fat (g)", $entry.fat)
+                }
+                Section { Button("Delete entry", role: .destructive) { context.delete(entry); dismiss() } }
+            }
+            .navigationTitle("Edit Food")
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { try? context.save(); dismiss() } } }
+        }
+    }
+
+    private func number(_ title: String, _ value: Binding<Double>) -> some View {
+        HStack {
+            Text(title)
+            Spacer()
+            TextField("0", value: value, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 90)
+        }
     }
 }

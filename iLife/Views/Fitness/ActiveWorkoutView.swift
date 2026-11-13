@@ -36,8 +36,16 @@ struct ActiveWorkoutView: View {
 
                 if !session.exercises.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Exercise \(session.exerciseIndex + 1) of \(session.exercises.count)").font(.caption).foregroundStyle(.secondary)
-                        Text(session.currentExercise).font(.title2.bold())
+                        HStack(spacing: 14) {
+                            ItemThumbnail(photo: session.currentPhoto, illustration: .exercise(session.currentExercise, equipment: session.currentEquipment), size: 84, corner: 16)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Exercise \(session.exerciseIndex + 1) of \(session.exercises.count)").font(.caption).foregroundStyle(.secondary)
+                                Text(session.currentExercise).font(.title2.bold())
+                                if !session.currentEquipment.isEmpty {
+                                    Label(session.currentEquipment, systemImage: Equipment.symbol(session.currentEquipment)).font(.caption).foregroundStyle(.secondary)
+                                }
+                            }
+                        }
                         if session.exerciseIndex + 1 < session.exercises.count {
                             Text("Next: \(session.exercises[session.exerciseIndex + 1])").font(.caption).foregroundStyle(.secondary)
                         }

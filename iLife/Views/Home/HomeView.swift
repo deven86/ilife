@@ -13,8 +13,14 @@ struct HomeView: View {
     @Query private var plans: [WorkoutPlan]
     @Query private var profiles: [HealthProfile]
     @Query(sort: \InBodyScan.date, order: .reverse) private var scans: [InBodyScan]
+    @Query(sort: \ProgressPhoto.date, order: .reverse) private var progress: [ProgressPhoto]
 
     private var profile: HealthProfile { profiles.first ?? HealthProfile() }
+    @State private var profileForSheet: HealthProfile?
+    private var displayName: String {
+        if let f = profiles.first?.firstName, !f.isEmpty { return f }
+        return userName.isEmpty ? "there" : userName
+    }
     private var todayFoods: [FoodEntry] { foods.filter { Calendar.current.isDateInToday($0.date) } }
     private var appWaterL: Double { waters.filter { Calendar.current.isDateInToday($0.date) }.reduce(0) { $0 + $1.millilitres } / 1000 }
     private var waterL: Double { max(appWaterL, health.waterLitres) }
@@ -65,6 +71,7 @@ struct HomeView: View {
                     MetricTile(title: "Workout", value: todayMinutes.clean, unit: "min", icon: "dumbbell.fill", color: .purple)
                 }
                 todayWorkoutCard
+                TransformationCard(photos: progress)
                 nutritionCard
                 if profile.targetWeightKg > 0 { goalCard }
             }
@@ -79,6 +86,7 @@ struct HomeView: View {
             pushWidget()
         }
         .task { pushWidget() }
+        .sheet(item: $profileForSheet) { p in NavigationStack { ProfileView(profile: p) } }
         .onChange(of: health.steps) { _, _ in pushWidget() }
     }
 
@@ -92,10 +100,13 @@ struct HomeView: View {
         HStack {
             VStack(alignment: .leading) {
                 Text("\(greeting),").font(.title2.weight(.semibold))
-                Text("\(userName) 👋").font(.title.bold())
+                Text("\(displayName) 👋").font(.title.bold())
             }
             Spacer()
-            ILifeLogo(size: 48)
+            Button { profileForSheet = ensureProfile(context) } label: {
+                AvatarView(data: profiles.first?.avatar, name: profiles.first?.fullName.isEmpty == false ? profiles.first!.fullName : userName, size: 54)
+            }
+            .buttonStyle(.plain)
         }
         .padding(.top, 8)
     }
@@ -138,7 +149,7 @@ struct HomeView: View {
             Button {
                 if let p = todayPlan {
                     session.start(name: p.name, category: p.focus.contains("Cardio") ? "Cardio" : "Strength",
-                                  exercises: p.orderedExercises.map(\.name))
+                                  exercises: p.orderedExercises.map(\.name), photos: p.orderedExercises.map(\.photo), equipment: p.orderedExercises.map(\.equipment))
                 } else {
                     session.start(name: "Quick Workout", category: "Strength", exercises: [])
                 }

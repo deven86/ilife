@@ -7,15 +7,46 @@ import SwiftData
 // MARK: - Nutrition
 
 enum MealType: String, Codable, CaseIterable, Identifiable {
-    case breakfast, lunch, snacks, dinner
+    case earlyMorning, breakfast, preWorkout, postWorkout, lunch, snacks, dinner, drinks, other
     var id: String { rawValue }
-    var title: String { rawValue.capitalized }
+    var title: String {
+        switch self {
+        case .earlyMorning: "Early Morning"
+        case .breakfast: "Breakfast"
+        case .preWorkout: "Pre-Workout"
+        case .postWorkout: "Post-Workout"
+        case .lunch: "Lunch"
+        case .snacks: "Snacks"
+        case .dinner: "Dinner"
+        case .drinks: "Drinks & Beverages"
+        case .other: "Other"
+        }
+    }
     var icon: String {
         switch self {
+        case .earlyMorning: "sun.horizon.fill"
         case .breakfast: "sunrise.fill"
+        case .preWorkout: "bolt.fill"
+        case .postWorkout: "figure.cooldown"
         case .lunch: "sun.max.fill"
         case .snacks: "carrot.fill"
         case .dinner: "moon.stars.fill"
+        case .drinks: "cup.and.saucer.fill"
+        case .other: "fork.knife"
+        }
+    }
+    /// The four main meals are always shown; the rest appear once something is logged in them.
+    var isCore: Bool { [.breakfast, .lunch, .snacks, .dinner].contains(self) }
+
+    /// Best guess for "now" — the user can always change it.
+    static func suggested(for date: Date = .now) -> MealType {
+        switch Calendar.current.component(.hour, from: date) {
+        case 4..<7: .earlyMorning
+        case 7..<11: .breakfast
+        case 11..<15: .lunch
+        case 15..<19: .snacks
+        case 19..<24: .dinner
+        default: .other
         }
     }
 }
@@ -29,6 +60,7 @@ enum MealType: String, Codable, CaseIterable, Identifiable {
     var fat: Double = 0
     var quantity: String = ""
     var date: Date = Date.now
+    @Attribute(.externalStorage) var photo: Data?
 
     var meal: MealType {
         get { MealType(rawValue: mealRaw) ?? .breakfast }
@@ -88,6 +120,7 @@ enum MealType: String, Codable, CaseIterable, Identifiable {
     /// Weekdays 1 = Sunday … 7 = Saturday (Calendar convention)
     var weekdays: [Int] = []
     var created: Date = Date.now
+    @Attribute(.externalStorage) var coverPhoto: Data?
     @Relationship(deleteRule: .cascade, inverse: \PlanExercise.plan) var exercises: [PlanExercise]? = []
 
     init(name: String, focus: String, level: String, estimatedMinutes: Int, weekdays: [Int]) {
@@ -104,6 +137,8 @@ enum MealType: String, Codable, CaseIterable, Identifiable {
     var reps: String = "12"
     var restSeconds: Int = 60
     var order: Int = 0
+    var equipment: String = ""
+    @Attribute(.externalStorage) var photo: Data?
     var plan: WorkoutPlan?
     init(name: String, sets: Int, reps: String, restSeconds: Int, order: Int) {
         self.name = name; self.sets = sets; self.reps = reps; self.restSeconds = restSeconds; self.order = order
@@ -190,7 +225,31 @@ enum MedicalDocKind: String, Codable, CaseIterable, Identifiable {
     var targetWeightKg: Double = 0
     var targetDate: Date = Date.now.addingTimeInterval(60 * 60 * 24 * 90)
     var startWeightKg: Double = 0
+    // Personal details
+    var firstName: String = ""
+    var lastName: String = ""
+    var email: String = ""
+    var phone: String = ""
+    var dateOfBirth: Date?
+    var gender: String = ""
+    @Attribute(.externalStorage) var avatar: Data?
     init() {}
+
+    var fullName: String { [firstName, lastName].filter { !$0.isEmpty }.joined(separator: " ") }
+}
+
+// MARK: - Transformation journey
+
+@Model final class ProgressPhoto {
+    var date: Date = Date.now
+    var pose: String = "Front"        // Front | Side | Back | Other
+    var weightKg: Double = 0
+    var note: String = ""
+    @Attribute(.externalStorage) var image: Data?
+    @Attribute(.externalStorage) var thumbnail: Data?
+    init(date: Date = .now, pose: String, image: Data?, thumbnail: Data?) {
+        self.date = date; self.pose = pose; self.image = image; self.thumbnail = thumbnail
+    }
 }
 
 @Model final class AppAlarm {
@@ -209,6 +268,6 @@ enum MedicalDocKind: String, Codable, CaseIterable, Identifiable {
 enum ILifeSchema {
     static let models: [any PersistentModel.Type] = [
         FoodEntry.self, WaterEntry.self, WorkoutLog.self, ExerciseSet.self, WorkoutPlan.self, PlanExercise.self,
-        InBodyScan.self, MedicalDocument.self, EmergencyContact.self, HealthProfile.self, AppAlarm.self
+        InBodyScan.self, MedicalDocument.self, EmergencyContact.self, HealthProfile.self, AppAlarm.self, ProgressPhoto.self
     ]
 }

@@ -18,11 +18,22 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section("Profile") {
-                TextField("Your name", text: $userName)
                 if let p = profiles.first {
+                    NavigationLink { ProfileView(profile: p) } label: {
+                        HStack(spacing: 14) {
+                            AvatarView(data: p.avatar, name: p.fullName.isEmpty ? userName : p.fullName, size: 56)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(p.fullName.isEmpty ? (userName.isEmpty ? "Add your details" : userName) : p.fullName).font(.headline)
+                                Text([p.email, p.phone].filter { !$0.isEmpty }.joined(separator: " · ").isEmpty ? "Photo, name, email, phone"
+                                     : [p.email, p.phone].filter { !$0.isEmpty }.joined(separator: " · "))
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
                     NavigationLink("Goals & Targets") { GoalsView(profile: p) }
                 } else {
-                    Button("Set goals & targets") { context.insert(HealthProfile()) }
+                    Button("Set up your profile") { _ = ensureProfile(context) }
                 }
             }
 

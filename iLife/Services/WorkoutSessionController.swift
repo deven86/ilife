@@ -13,6 +13,8 @@ final class WorkoutSessionController: ObservableObject {
     @Published var name = ""
     @Published var category = "Strength"
     @Published var exercises: [String] = []
+    @Published var exercisePhotos: [Data?] = []
+    @Published var exerciseEquipment: [String] = []
     @Published var exerciseIndex = 0
     @Published var elapsed: TimeInterval = 0
     @Published var heartRate = 0
@@ -26,6 +28,8 @@ final class WorkoutSessionController: ObservableObject {
     private var tick = 0
 
     var currentExercise: String { exercises.indices.contains(exerciseIndex) ? exercises[exerciseIndex] : name }
+    var currentPhoto: Data? { exercisePhotos.indices.contains(exerciseIndex) ? exercisePhotos[exerciseIndex] : nil }
+    var currentEquipment: String { exerciseEquipment.indices.contains(exerciseIndex) ? exerciseEquipment[exerciseIndex] : "" }
 
     private var met: Double {
         switch category {
@@ -38,9 +42,10 @@ final class WorkoutSessionController: ObservableObject {
         }
     }
 
-    func start(name: String, category: String, exercises: [String]) {
+    func start(name: String, category: String, exercises: [String], photos: [Data?] = [], equipment: [String] = []) {
         guard !isActive else { return }
         self.name = name; self.category = category; self.exercises = exercises
+        self.exercisePhotos = photos; self.exerciseEquipment = equipment
         exerciseIndex = 0; elapsed = 0; calories = 0; heartRate = 0; pausedAccum = 0; isPaused = false
         startDate = .now; isActive = true
 

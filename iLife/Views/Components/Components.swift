@@ -86,3 +86,39 @@ struct AdaptiveGrid<Content: View>: View {
         }
     }
 }
+
+/// Card linking to the Transformation journey (used on Home and Health).
+struct TransformationCard: View {
+    let photos: [ProgressPhoto]   // newest first
+    var body: some View {
+        NavigationLink { TransformationView() } label: {
+            HStack(spacing: 12) {
+                HStack(spacing: -14) {
+                    ForEach(Array(photos.prefix(3).enumerated()), id: \.offset) { _, p in
+                        Group {
+                            if let d = p.thumbnail, let img = UIImage(data: d) { Image(uiImage: img).resizable().scaledToFill() }
+                            else { Color.gray.opacity(0.3) }
+                        }
+                        .frame(width: 46, height: 60).clipShape(RoundedRectangle(cornerRadius: 9))
+                        .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(.white.opacity(0.7), lineWidth: 1.5))
+                    }
+                    if photos.isEmpty {
+                        Image(systemName: "figure.stand").font(.title).foregroundStyle(.white)
+                            .frame(width: 46, height: 60).background(LinearGradient(colors: [.purple, .pink], startPoint: .top, endPoint: .bottom),
+                                                                     in: RoundedRectangle(cornerRadius: 9))
+                    }
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Transformation").font(.headline)
+                    let today = photos.contains { Calendar.current.isDateInToday($0.date) }
+                    Text(photos.isEmpty ? "Start your photo journey" : (today ? "Today's photo done ✓ · \(photos.count) photos" : "Take today's photo · \(photos.count) so far"))
+                        .font(.caption).foregroundStyle(today ? Color.green : Color.secondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").foregroundStyle(.secondary)
+            }
+        }
+        .buttonStyle(.plain)
+        .glassCard()
+    }
+}
