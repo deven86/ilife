@@ -128,7 +128,7 @@ struct NutritionView: View {
             .buttonStyle(.plain)
             ForEach(items) { item in
                 HStack(spacing: 12) {
-                    ItemThumbnail(photo: item.photo, illustration: .food(item.name), size: 44, corner: 10)
+                    ItemThumbnail.food(item.name, photo: item.photo, size: 44, corner: 10)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(item.name).font(.subheadline)
                         Text("\(item.date.formatted(date: .omitted, time: .shortened)) · P \(Int(item.protein))g · C \(Int(item.carbs))g · F \(Int(item.fat))g\(item.quantity.isEmpty ? "" : " · \(item.quantity)")")
@@ -149,61 +149,10 @@ struct NutritionView: View {
     }
 }
 
-struct FoodPreset: Identifiable {
-    let id = UUID()
-    let name: String, serving: String, kcal: Double, p: Double, c: Double, f: Double
-}
-
-enum FoodLibrary {
-    static let items: [FoodPreset] = [
-        .init(name: "Chapati / Roti", serving: "1 medium", kcal: 105, p: 3, c: 18, f: 3),
-        .init(name: "Steamed Rice", serving: "1 cup", kcal: 205, p: 4, c: 45, f: 0.4),
-        .init(name: "Dal (cooked)", serving: "1 bowl", kcal: 180, p: 9, c: 25, f: 5),
-        .init(name: "Paneer", serving: "100 g", kcal: 265, p: 18, c: 4, f: 20),
-        .init(name: "Chicken Breast (cooked)", serving: "100 g", kcal: 165, p: 31, c: 0, f: 3.6),
-        .init(name: "Egg (whole, boiled)", serving: "1 large", kcal: 78, p: 6, c: 0.6, f: 5),
-        .init(name: "Egg White", serving: "1 large", kcal: 17, p: 3.6, c: 0.2, f: 0),
-        .init(name: "Poha", serving: "1 plate", kcal: 250, p: 5, c: 45, f: 6),
-        .init(name: "Idli", serving: "2 pieces", kcal: 120, p: 4, c: 24, f: 0.5),
-        .init(name: "Plain Dosa", serving: "1 medium", kcal: 170, p: 4, c: 28, f: 4),
-        .init(name: "Upma", serving: "1 bowl", kcal: 230, p: 6, c: 35, f: 7),
-        .init(name: "Curd / Dahi", serving: "1 cup", kcal: 100, p: 8, c: 8, f: 4),
-        .init(name: "Banana", serving: "1 medium", kcal: 105, p: 1.3, c: 27, f: 0.4),
-        .init(name: "Apple", serving: "1 medium", kcal: 95, p: 0.5, c: 25, f: 0.3),
-        .init(name: "Oats (dry)", serving: "40 g", kcal: 150, p: 5, c: 27, f: 2.5),
-        .init(name: "Whey Protein", serving: "1 scoop", kcal: 120, p: 24, c: 3, f: 1.5),
-        .init(name: "Milk (toned)", serving: "1 glass", kcal: 120, p: 6, c: 10, f: 6),
-        .init(name: "Almonds", serving: "10 pieces", kcal: 70, p: 2.6, c: 2.5, f: 6),
-        .init(name: "Fish (grilled)", serving: "100 g", kcal: 140, p: 25, c: 0, f: 4),
-        .init(name: "Sprouts Salad", serving: "1 bowl", kcal: 120, p: 8, c: 18, f: 1.5),
-        .init(name: "Vegetable Sabzi", serving: "1 bowl", kcal: 150, p: 4, c: 15, f: 8),
-        .init(name: "Tea with milk & sugar", serving: "1 cup", kcal: 70, p: 2, c: 10, f: 2),
-        .init(name: "Black Coffee", serving: "1 cup", kcal: 5, p: 0.3, c: 0, f: 0),
-        .init(name: "Coffee with milk", serving: "1 cup", kcal: 60, p: 3, c: 6, f: 2.5),
-        .init(name: "Green Tea", serving: "1 cup", kcal: 2, p: 0, c: 0, f: 0),
-        .init(name: "Black Tea (no sugar)", serving: "1 cup", kcal: 2, p: 0, c: 0.5, f: 0),
-        .init(name: "Lemon Water", serving: "1 glass", kcal: 10, p: 0, c: 3, f: 0),
-        .init(name: "Coconut Water", serving: "1 glass", kcal: 45, p: 0.5, c: 9, f: 0.5),
-        .init(name: "Buttermilk / Chaas", serving: "1 glass", kcal: 40, p: 3, c: 5, f: 1),
-        .init(name: "Protein Shake (whey + milk)", serving: "1 glass", kcal: 240, p: 30, c: 13, f: 7.5),
-        .init(name: "Fresh Orange Juice", serving: "1 glass", kcal: 110, p: 2, c: 26, f: 0.5),
-        .init(name: "Soaked Almonds", serving: "5 pieces", kcal: 35, p: 1.3, c: 1.2, f: 3),
-        .init(name: "Paratha (plain)", serving: "1 medium", kcal: 260, p: 5, c: 36, f: 10),
-        .init(name: "Brown Bread", serving: "2 slices", kcal: 140, p: 6, c: 24, f: 2),
-        .init(name: "Peanut Butter", serving: "1 tbsp", kcal: 95, p: 4, c: 3, f: 8),
-        .init(name: "Greek Yogurt", serving: "100 g", kcal: 60, p: 10, c: 4, f: 0.4),
-        .init(name: "Rajma (cooked)", serving: "1 bowl", kcal: 210, p: 13, c: 35, f: 1),
-        .init(name: "Chole (cooked)", serving: "1 bowl", kcal: 270, p: 12, c: 40, f: 7),
-        .init(name: "Khichdi", serving: "1 bowl", kcal: 250, p: 9, c: 40, f: 6),
-        .init(name: "Papaya", serving: "1 cup", kcal: 60, p: 0.7, c: 15, f: 0.2),
-    ]
-}
-
 struct AddFoodSheet: View {
     let date: Date
     @State private var meal: MealType
     @State private var time: Date
-    @State private var photo: UIImage?
 
     init(meal: MealType, date: Date) {
         self.date = date
@@ -216,85 +165,181 @@ struct AddFoodSheet: View {
 
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
+    @Query(sort: \CustomFood.name) private var myFoods: [CustomFood]
+    @Query(sort: \FoodEntry.date, order: .reverse) private var history: [FoodEntry]
     @State private var search = ""
-    @State private var custom = false
-    @State private var name = ""
-    @State private var qty = ""
-    @State private var kcal = ""
-    @State private var p = ""
-    @State private var c = ""
-    @State private var f = ""
+    @State private var category = "All"
     @State private var servings = 1.0
+    @State private var showCustom = false
+
+    private var allFoods: [FoodPreset] {
+        myFoods.map { FoodPreset(name: $0.name, serving: $0.serving, kcal: $0.calories, p: $0.protein, c: $0.carbs, f: $0.fat, category: "My Foods") }
+            + FoodLibrary.items
+    }
+
+    private var recent: [FoodPreset] {
+        var seen = Set<String>()
+        return history.prefix(80).compactMap { e in
+            guard seen.insert(e.name.lowercased()).inserted else { return nil }
+            if let preset = allFoods.first(where: { $0.name.caseInsensitiveCompare(e.name) == .orderedSame }) { return preset }
+            return FoodPreset(name: e.name, serving: e.quantity.isEmpty ? "1 serving" : e.quantity, kcal: e.calories, p: e.protein, c: e.carbs, f: e.fat, category: "Recent")
+        }
+        .prefix(15).map { $0 }
+    }
 
     private var filtered: [FoodPreset] {
-        search.isEmpty ? FoodLibrary.items : FoodLibrary.items.filter { $0.name.localizedCaseInsensitiveContains(search) }
+        let base: [FoodPreset]
+        switch category {
+        case "All": base = allFoods
+        case "Recent": base = recent
+        default: base = allFoods.filter { $0.category == category }
+        }
+        return search.isEmpty ? base : base.filter { $0.name.localizedCaseInsensitiveContains(search) }
     }
+
+    private var chips: [String] { ["All", "Recent", "My Foods"] + FoodLibrary.categories }
 
     var body: some View {
         NavigationStack {
-            Form {
+            List {
                 Section {
                     Picker("Meal", selection: $meal) {
                         ForEach(MealType.allCases) { Label($0.title, systemImage: $0.icon).tag($0) }
                     }
                     DatePicker("Time", selection: $time, displayedComponents: .hourAndMinute)
-                    Stepper("Servings: \(servings.clean)", value: $servings, in: 0.5...10, step: 0.5)
-                    HStack {
-                        if let photo {
-                            Image(uiImage: photo).resizable().scaledToFill().frame(width: 52, height: 52).clipShape(RoundedRectangle(cornerRadius: 10))
-                        }
-                        PhotoSourceButton(onPick: { photo = $0 }) {
-                            Label(photo == nil ? "Add a photo of your food" : "Change photo", systemImage: "camera.fill")
-                        }
-                        if photo != nil { Spacer(); Button("Remove", role: .destructive) { photo = nil }.font(.caption) }
-                    }
+                    Stepper("Servings: \(servings.clean)", value: $servings, in: 0.25...10, step: 0.25)
                 } footer: {
-                    Text("Log anything at any time — pick the meal it belongs to.")
+                    Text("Tap a food to log it. Tap its picture to add your own photo — it's saved for next time.")
                 }
-                Section("Quick add") {
-                    ForEach(filtered) { item in
-                        Button {
-                            save(name: item.name, qty: "\(servings.clean) × \(item.serving)", kcal: item.kcal * servings,
-                                 p: item.p * servings, c: item.c * servings, f: item.f * servings)
-                        } label: {
-                            HStack(spacing: 12) {
-                                ItemThumbnail(photo: nil, illustration: .food(item.name), size: 40, corner: 9)
-                                VStack(alignment: .leading) {
-                                    Text(item.name)
-                                    Text(item.serving).font(.caption).foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Text("\(Int(item.kcal * servings)) kcal").foregroundStyle(.secondary)
+
+                Section {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(chips, id: \.self) { c in
+                                Button(c) { category = c }
+                                    .font(.caption.bold()).padding(.horizontal, 12).padding(.vertical, 7)
+                                    .background(category == c ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.gray.opacity(0.2)), in: Capsule())
+                                    .foregroundStyle(category == c ? Color.white : Color.primary)
+                                    .buttonStyle(.plain)
                             }
                         }
                     }
-                }
-                Section("Custom food") {
-                    TextField("Food name", text: $name)
-                    TextField("Quantity (e.g. 1 bowl)", text: $qty)
-                    TextField("Calories (kcal)", text: $kcal).keyboardType(.decimalPad)
-                    TextField("Protein (g)", text: $p).keyboardType(.decimalPad)
-                    TextField("Carbs (g)", text: $c).keyboardType(.decimalPad)
-                    TextField("Fat (g)", text: $f).keyboardType(.decimalPad)
-                    Button("Add custom food") {
-                        save(name: name, qty: qty, kcal: Double(kcal) ?? 0, p: Double(p) ?? 0, c: Double(c) ?? 0, f: Double(f) ?? 0)
+                    .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
+
+                    Button { showCustom = true } label: {
+                        Label(search.isEmpty ? "Create your own food" : "Create \"\(search)\"", systemImage: "plus.circle.fill")
                     }
-                    .disabled(name.isEmpty || (Double(kcal) ?? 0) <= 0)
+
+                    if filtered.isEmpty {
+                        Text(category == "My Foods" ? "Foods you create are saved here." : "No match — create it above.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    ForEach(filtered) { item in
+                        HStack(spacing: 12) {
+                            SavedPhotoButton(kind: "food", name: item.name, size: 46)
+                            Button { log(item) } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(item.name).foregroundStyle(.primary)
+                                        Text("\(item.serving) · P \(item.p.clean) · C \(item.c.clean) · F \(item.f.clean)")
+                                            .font(.caption2).foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                    Text("\(Int(item.kcal * servings)) kcal").font(.subheadline).foregroundStyle(.secondary)
+                                    Image(systemName: "plus.circle.fill").foregroundStyle(.tint)
+                                }
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
                 }
             }
-            .searchable(text: $search, prompt: "Search foods")
+            .searchable(text: $search, prompt: "Search 190+ foods")
             .navigationTitle("Log Food")
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } } }
+            .sheet(isPresented: $showCustom) {
+                CustomFoodSheet(initialName: search) { food, logNow in
+                    if logNow { log(FoodPreset(name: food.name, serving: food.serving, kcal: food.calories, p: food.protein, c: food.carbs, f: food.fat)) }
+                }
+            }
         }
     }
 
-    private func save(name: String, qty: String, kcal: Double, p: Double, c: Double, f: Double) {
-        let entry = FoodEntry(name: name, meal: meal, calories: kcal, protein: p, carbs: c, fat: f, quantity: qty, date: time)
-        if let photo { entry.photo = ImageTools.jpeg(photo, maxSide: 1200) }
+    private func log(_ item: FoodPreset) {
+        let qty = servings == 1 ? item.serving : "\(servings.clean) × \(item.serving)"
+        let entry = FoodEntry(name: item.name, meal: meal, calories: item.kcal * servings, protein: item.p * servings,
+                              carbs: item.c * servings, fat: item.f * servings, quantity: qty, date: time)
         context.insert(entry)
         try? context.save()
         Task { await HealthKitManager.shared.saveFood(entry) }
         dismiss()
+    }
+}
+
+/// Create a food once; it's saved under "My Foods" with its photo.
+struct CustomFoodSheet: View {
+    var initialName: String = ""
+    let onSave: (CustomFood, Bool) -> Void
+    @Environment(\.modelContext) private var context
+    @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
+    @State private var serving = "1 serving"
+    @State private var kcal = ""
+    @State private var p = ""
+    @State private var c = ""
+    @State private var f = ""
+    @State private var photo: UIImage?
+    @State private var logNow = true
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    HStack(spacing: 14) {
+                        Group {
+                            if let photo { Image(uiImage: photo).resizable().scaledToFill() }
+                            else { ItemThumbnail(photo: nil, illustration: .food(name), size: 72, corner: 14) }
+                        }
+                        .frame(width: 72, height: 72).clipShape(RoundedRectangle(cornerRadius: 14))
+                        PhotoSourceButton(onPick: { photo = $0 }) { Label(photo == nil ? "Add photo" : "Change photo", systemImage: "camera.fill") }
+                    }
+                }
+                Section("Food") {
+                    TextField("Name (e.g. MuscleBlaze Whey shake)", text: $name)
+                    TextField("Serving (e.g. 1 scoop, 1 bowl)", text: $serving)
+                }
+                Section("Per serving") {
+                    field("Calories (kcal)", $kcal); field("Protein (g)", $p); field("Carbs (g)", $c); field("Fat (g)", $f)
+                }
+                Section { Toggle("Also log it now", isOn: $logNow) }
+            }
+            .navigationTitle("New Food")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        func n(_ s: String) -> Double { Double(s.replacingOccurrences(of: ",", with: ".")) ?? 0 }
+                        let food = CustomFood(name: name.trimmingCharacters(in: .whitespaces), serving: serving, calories: n(kcal), protein: n(p), carbs: n(c), fat: n(f))
+                        context.insert(food)
+                        try? context.save()
+                        if let photo { MediaStore.shared.set("food", food.name, image: photo) }
+                        dismiss()
+                        onSave(food, logNow)
+                    }
+                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+            .onAppear { if name.isEmpty { name = initialName } }
+        }
+    }
+
+    private func field(_ title: String, _ v: Binding<String>) -> some View {
+        HStack {
+            Text(title)
+            Spacer()
+            TextField("0", text: v).keyboardType(.decimalPad).multilineTextAlignment(.trailing).frame(width: 90)
+        }
     }
 }
 
@@ -308,7 +353,7 @@ struct EditFoodSheet: View {
             Form {
                 Section {
                     HStack(spacing: 14) {
-                        ItemThumbnail(photo: entry.photo, illustration: .food(entry.name), size: 72, corner: 14)
+                        ItemThumbnail.food(entry.name, photo: entry.photo, size: 72, corner: 14)
                         VStack(alignment: .leading, spacing: 8) {
                             PhotoSourceButton(onPick: { entry.photo = ImageTools.jpeg($0, maxSide: 1200) }) {
                                 Label(entry.photo == nil ? "Add photo" : "Change photo", systemImage: "camera.fill")

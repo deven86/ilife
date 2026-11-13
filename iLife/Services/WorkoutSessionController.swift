@@ -92,6 +92,12 @@ final class WorkoutSessionController: ObservableObject {
         let log = WorkoutLog(name: name, category: category, start: startDate, durationMinutes: duration,
                              calories: calories, avgHeartRate: Double(heartRate), source: "iLife")
         context.insert(log)
+        // Record which exercises were done so they show in the workout's detail (edit to add reps/kg).
+        for (i, ex) in exercises.prefix(exerciseIndex + 1).enumerated() {
+            let s = ExerciseSet(exercise: ex, reps: 0, weightKg: 0, order: i)
+            s.log = log
+            context.insert(s)
+        }
         await HealthKitManager.shared.saveWorkout(log, activity: .from(category: category))
         try? context.save()
     }

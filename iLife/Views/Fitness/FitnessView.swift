@@ -14,6 +14,7 @@ struct FitnessView: View {
     @State private var showLog = false
     @State private var editingPlan: WorkoutPlan?
     @State private var showNewPlan = false
+    @State private var editingLog: WorkoutLog?
 
     private var weekLogs: [WorkoutLog] {
         let start = Calendar.current.date(byAdding: .day, value: -6, to: Calendar.current.startOfDay(for: .now))!
@@ -24,18 +25,24 @@ struct FitnessView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 Picker("", selection: $tab) {
-                    Text("History").tag(0); Text("Plans").tag(1)
+                    Text("History").tag(0); Text("Plans").tag(1); Text("Gym").tag(2)
                 }
                 .pickerStyle(.segmented)
 
+                if tab != 2 {
                 HStack(spacing: 12) {
                     Button { showQuickStart = true } label: { Label("Start Workout", systemImage: "play.fill").frame(maxWidth: .infinity) }
                         .buttonStyle(.borderedProminent).controlSize(.large).disabled(session.isActive)
                     Button { showLog = true } label: { Label("Log Past", systemImage: "plus").frame(maxWidth: .infinity) }
                         .buttonStyle(.bordered).controlSize(.large)
                 }
+                }
 
-                if tab == 0 { history } else { plansList }
+                switch tab {
+                case 0: history
+                case 1: plansList
+                default: GymSection()
+                }
             }
             .padding()
         }
@@ -43,8 +50,9 @@ struct FitnessView: View {
         .navigationTitle("Fitness")
         .refreshable { await health.importWorkouts(into: context, notify: false) }
         .sheet(isPresented: $showQuickStart) { QuickStartSheet() }
-        .sheet(isPresented: $showLog) { LogWorkoutSheet() }
+        .sheet(isPresented: $showLog) { WorkoutEditorView(log: nil) }
         .sheet(isPresented: $showNewPlan) { PlanEditorView(plan: nil) }
+        .sheet(item: $editingLog) { WorkoutEditorView(log: $0) }
         .sheet(item: $editingPlan) { PlanEditorView(plan: $0) }
     }
 
@@ -72,9 +80,13 @@ struct FitnessView: View {
                                        description: Text("Workouts from Apple Watch and other fitness apps appear here automatically once Apple Health is connected."))
                     .glassCard()
             }
-            ForEach(logs.prefix(50)) { log in
-                WorkoutRow(log: log)
-                    .contextMenu { Button("Delete", role: .destructive) { context.delete(log) } }
+            ForEach(logs.prefix(100)) { log in
+                NavigationLink { WorkoutDetailView(log: log) } label: { WorkoutRow(log: log) }
+                    .buttonStyle(.plain)
+                    .contextMenu {
+                        Button("Edit", systemImage: "pencil") { editingLog = log }
+                        Button("Delete", systemImage: "trash", role: .destructive) { context.delete(log); try? context.save() }
+                    }
             }
         }
     }
@@ -109,9 +121,18 @@ struct WorkoutRow: View {
             Image(systemName: icon).font(.title2).foregroundStyle(.tint)
                 .frame(width: 44, height: 44).background(.tint.opacity(0.15), in: Circle())
             VStack(alignment: .leading, spacing: 2) {
-                Text(log.name).font(.headline)
+                Text(log.name).font(.headline).lineLimit(1)
                 Text(log.start.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.secondary)
-                Label(log.source, systemImage: log.source == "iLife" ? "app.fill" : "applewatch").font(.caption2).foregroundStyle(.secondary)
+                if !log.exerciseNames.isEmpty {
+                    Text(log.exerciseNames.prefix(3).joined(separator: " · ") + (log.exerciseNames.count > 3 ? " +\(log.exerciseNames.count - 3)" : ""))
+                        .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                }
+                HStack(spacing: 6) {
+                    Label(log.source, systemImage: log.source == "iLife" ? "app.fill" : "applewatch")
+                    if log.isPT { Label("PT", systemImage: "person.2.fill").foregroundStyle(.orange) }
+                    if !log.exerciseNames.isEmpty { Text("· \(log.orderedSets.count) sets") }
+                }
+                .font(.caption2).foregroundStyle(.secondary)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
@@ -161,7 +182,7 @@ struct PlanCard: View {
                 HStack(spacing: 10) {
                     ForEach(plan.orderedExercises) { ex in
                         VStack(spacing: 4) {
-                            ItemThumbnail(photo: ex.photo, illustration: .exercise(ex.name, equipment: ex.equipment), size: 60, corner: 12)
+                            ItemThumbnail(photo: ex.photo, illustration: .exercise(ex.name, equipment: ex.equipment), size: 60, corner: 12, savedKey: ("exercise", ex.name))
                             Text(ex.name).font(.caption2).lineLimit(2).multilineTextAlignment(.center).frame(width: 68)
                             if !ex.equipment.isEmpty {
                                 Text(ex.equipment).font(.system(size: 9)).foregroundStyle(.secondary).lineLimit(1).frame(width: 68)
@@ -196,68 +217,5 @@ struct QuickStartSheet: View {
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
         }
         .presentationDetents([.medium, .large])
-    }
-}
-
-struct LogWorkoutSheet: View {
-    @Environment(\.modelContext) private var context
-    @Environment(\.dismiss) private var dismiss
-    @State private var name = "Strength Training"
-    @State private var category = "Strength"
-    @State private var start = Date.now.addingTimeInterval(-3600)
-    @State private var minutes = 45.0
-    @State private var calories = 300.0
-    @State private var notes = ""
-    @State private var sets: [(String, Int, Double)] = []
-    @State private var newExercise = ""
-    @State private var newReps = 10
-    @State private var newWeight = 20.0
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Workout") {
-                    TextField("Name", text: $name)
-                    Picker("Type", selection: $category) {
-                        ForEach(["Strength", "Cardio", "HIIT", "Yoga", "Running", "Walking", "Cycling"], id: \.self) { Text($0) }
-                    }
-                    DatePicker("Started", selection: $start)
-                    Stepper("Duration: \(Int(minutes)) min", value: $minutes, in: 1...300, step: 5)
-                    Stepper("Calories: \(Int(calories)) kcal", value: $calories, in: 0...3000, step: 10)
-                }
-                Section("Sets (optional)") {
-                    ForEach(sets.indices, id: \.self) { i in
-                        Text("\(sets[i].0) — \(sets[i].1) reps × \(sets[i].2.clean) kg")
-                    }
-                    TextField("Exercise", text: $newExercise)
-                    Stepper("Reps: \(newReps)", value: $newReps, in: 1...100)
-                    Stepper("Weight: \(newWeight.clean) kg", value: $newWeight, in: 0...400, step: 2.5)
-                    Button("Add set") {
-                        guard !newExercise.isEmpty else { return }
-                        sets.append((newExercise, newReps, newWeight))
-                    }
-                }
-                Section("Notes") { TextField("How did it feel?", text: $notes, axis: .vertical) }
-            }
-            .navigationTitle("Log Workout")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        let log = WorkoutLog(name: name, category: category, start: start, durationMinutes: minutes, calories: calories)
-                        log.notes = notes
-                        context.insert(log)
-                        for (i, s) in sets.enumerated() {
-                            let set = ExerciseSet(exercise: s.0, reps: s.1, weightKg: s.2, order: i)
-                            set.log = log
-                            context.insert(set)
-                        }
-                        try? context.save()
-                        Task { await HealthKitManager.shared.saveWorkout(log, activity: .from(category: category)) }
-                        dismiss()
-                    }
-                }
-            }
-        }
     }
 }

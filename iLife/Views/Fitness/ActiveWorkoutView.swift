@@ -37,7 +37,7 @@ struct ActiveWorkoutView: View {
                 if !session.exercises.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack(spacing: 14) {
-                            ItemThumbnail(photo: session.currentPhoto, illustration: .exercise(session.currentExercise, equipment: session.currentEquipment), size: 84, corner: 16)
+                            ItemThumbnail(photo: session.currentPhoto, illustration: .exercise(session.currentExercise, equipment: session.currentEquipment), size: 84, corner: 16, savedKey: ("exercise", session.currentExercise))
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Exercise \(session.exerciseIndex + 1) of \(session.exercises.count)").font(.caption).foregroundStyle(.secondary)
                                 Text(session.currentExercise).font(.title2.bold())

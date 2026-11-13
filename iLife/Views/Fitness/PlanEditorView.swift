@@ -13,6 +13,7 @@ struct PlanEditorView: View {
     @State private var weekdays: Set<Int> = []
     @State private var items: [DraftExercise] = []
     @State private var cover: Data?
+    @State private var showPicker = false
 
     struct DraftExercise: Identifiable {
         let id = UUID()
@@ -62,13 +63,7 @@ struct PlanEditorView: View {
                     ForEach($items) { $item in
                         VStack(alignment: .leading) {
                             HStack(spacing: 12) {
-                                PhotoSourceButton(onPick: { item.photo = ImageTools.jpeg($0, maxSide: 1000) }) {
-                                    ItemThumbnail(photo: item.photo, illustration: .exercise(item.name, equipment: item.equipment), size: 56, corner: 12)
-                                        .overlay(alignment: .bottomTrailing) {
-                                            Image(systemName: "camera.circle.fill").font(.callout).foregroundStyle(.white, .black.opacity(0.6)).offset(x: 4, y: 4)
-                                        }
-                                }
-                                .buttonStyle(.plain)
+                                SavedPhotoButton(kind: "exercise", name: item.name, equipment: item.equipment, size: 56)
                                 VStack(alignment: .leading, spacing: 4) {
                                     TextField("Exercise", text: $item.name).font(.headline)
                                     Picker("Equipment", selection: $item.equipment) {
@@ -88,7 +83,8 @@ struct PlanEditorView: View {
                     }
                     .onDelete { items.remove(atOffsets: $0) }
                     .onMove { items.move(fromOffsets: $0, toOffset: $1) }
-                    Button("Add exercise", systemImage: "plus") { items.append(.init(name: "", sets: 3, reps: "12", rest: 60)) }
+                    Button("Add from exercise library", systemImage: "list.bullet.rectangle") { showPicker = true }
+                    Button("Add blank exercise", systemImage: "plus") { items.append(.init(name: "", sets: 3, reps: "12", rest: 60)) }
                 }
                 if let plan {
                     Section { Button("Delete plan", role: .destructive) { context.delete(plan); dismiss() } }
@@ -100,6 +96,11 @@ struct PlanEditorView: View {
                 ToolbarItem(placement: .confirmationAction) { Button("Save", action: save).disabled(name.isEmpty) }
             }
             .onAppear(perform: load)
+            .sheet(isPresented: $showPicker) {
+                ExercisePickerView { picked in
+                    items += picked.map { .init(name: $0.name, sets: $0.isCardio ? 1 : 3, reps: $0.isCardio ? "20 min" : "12", rest: 60, equipment: $0.equipment) }
+                }
+            }
         }
     }
 
@@ -161,8 +162,10 @@ enum PlanTemplates {
 }
 
 enum Equipment {
-    static let all = ["", "Barbell", "Dumbbells", "Kettlebell", "Cable Machine", "Machine", "Smith Machine", "Bench",
-                      "Pull-up Bar", "Resistance Band", "Medicine Ball", "TRX", "Yoga Mat", "Treadmill", "Cycle", "Rowing Machine", "Skipping Rope"]
+    static let all = ["", "Barbell", "EZ Bar", "Dumbbells", "Kettlebell", "Plate", "Cable Machine", "Machine", "Smith Machine", "Bench",
+                      "Pull-up Bar", "Dip Station", "T-Bar", "Hyperextension Bench", "Resistance Band", "Medicine Ball", "TRX", "Ab Wheel",
+                      "Battle Ropes", "Plyo Box", "Sled", "Tyre", "Yoga Mat", "Foam Roller", "Treadmill", "Cycle", "Air Bike", "Elliptical",
+                      "Stair Climber", "Rowing Machine", "Skipping Rope", "Punching Bag"]
 
     static func symbol(_ e: String) -> String {
         switch e {

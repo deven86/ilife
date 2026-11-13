@@ -93,7 +93,16 @@ enum MealType: String, Codable, CaseIterable, Identifiable {
     var source: String = "iLife"
     /// HealthKit UUID, so imported workouts are never duplicated
     var healthKitID: String = ""
+    /// "Self" or "Personal Training"
+    var sessionType: String = "Self"
+    var trainerID: String = ""
     @Relationship(deleteRule: .cascade, inverse: \ExerciseSet.log) var sets: [ExerciseSet]? = []
+
+    var orderedSets: [ExerciseSet] { (sets ?? []).sorted { $0.order < $1.order } }
+    var exerciseNames: [String] {
+        var seen = Set<String>(); return orderedSets.map(\.exercise).filter { seen.insert($0).inserted }
+    }
+    var isPT: Bool { sessionType == "Personal Training" }
 
     init(name: String, category: String, start: Date, durationMinutes: Double, calories: Double, avgHeartRate: Double = 0, source: String = "iLife", healthKitID: String = "") {
         self.name = name; self.category = category; self.start = start; self.durationMinutes = durationMinutes
@@ -106,6 +115,8 @@ enum MealType: String, Codable, CaseIterable, Identifiable {
     var reps: Int = 0
     var weightKg: Double = 0
     var order: Int = 0
+    var durationMinutes: Double = 0   // cardio
+    var distanceKm: Double = 0        // cardio
     var log: WorkoutLog?
     init(exercise: String, reps: Int, weightKg: Double, order: Int) {
         self.exercise = exercise; self.reps = reps; self.weightKg = weightKg; self.order = order
@@ -268,6 +279,147 @@ enum MedicalDocKind: String, Codable, CaseIterable, Identifiable {
 enum ILifeSchema {
     static let models: [any PersistentModel.Type] = [
         FoodEntry.self, WaterEntry.self, WorkoutLog.self, ExerciseSet.self, WorkoutPlan.self, PlanExercise.self,
-        InBodyScan.self, MedicalDocument.self, EmergencyContact.self, HealthProfile.self, AppAlarm.self, ProgressPhoto.self
+        InBodyScan.self, MedicalDocument.self, EmergencyContact.self, HealthProfile.self, AppAlarm.self, ProgressPhoto.self,
+        LibraryPhoto.self, CustomFood.self, CustomExercise.self, GymMembership.self, Trainer.self, GymPayment.self, Expense.self
     ]
+}
+
+
+// MARK: - Saved photos & personal library
+
+/// A photo you added once for an exercise or a food — reused everywhere that item appears.
+@Model final class LibraryPhoto {
+    var kind: String = "exercise"     // exercise | food
+    var key: String = ""              // normalised item name
+    var updated: Date = Date.now
+    @Attribute(.externalStorage) var image: Data?
+    init(kind: String, key: String, image: Data?) { self.kind = kind; self.key = key; self.image = image }
+}
+
+@Model final class CustomFood {
+    var name: String = ""
+    var serving: String = ""
+    var calories: Double = 0
+    var protein: Double = 0
+    var carbs: Double = 0
+    var fat: Double = 0
+    var category: String = "My Foods"
+    var created: Date = Date.now
+    init(name: String, serving: String, calories: Double, protein: Double, carbs: Double, fat: Double) {
+        self.name = name; self.serving = serving; self.calories = calories; self.protein = protein; self.carbs = carbs; self.fat = fat
+    }
+}
+
+@Model final class CustomExercise {
+    var name: String = ""
+    var muscle: String = "Other"
+    var equipment: String = ""
+    var isCardio: Bool = false
+    init(name: String, muscle: String, equipment: String, isCardio: Bool) {
+        self.name = name; self.muscle = muscle; self.equipment = equipment; self.isCardio = isCardio
+    }
+}
+
+// MARK: - Gym, trainers, money
+
+@Model final class GymMembership {
+    var gymName: String = ""
+    var branch: String = ""
+    var address: String = ""
+    var phone: String = ""
+    var memberID: String = ""
+    var planName: String = ""        // e.g. 12 months
+    var startDate: Date = Date.now
+    var endDate: Date = Date.now
+    var fee: Double = 0
+    var latitude: Double = 0
+    var longitude: Double = 0
+    var notes: String = ""
+    @Attribute(.externalStorage) var photo: Data?
+    init() {}
+    var daysLeft: Int { Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: .now), to: endDate).day ?? 0 }
+    var isActive: Bool { endDate >= Calendar.current.startOfDay(for: .now) }
+}
+
+@Model final class Trainer {
+    var uid: String = UUID().uuidString
+    var firstName: String = ""
+    var lastName: String = ""
+    var speciality: String = ""
+    var phone: String = ""
+    var gymName: String = ""
+    var feePerSession: Double = 0
+    var notes: String = ""
+    @Attribute(.externalStorage) var photo: Data?
+    init() {}
+    var fullName: String { [firstName, lastName].filter { !$0.isEmpty }.joined(separator: " ") }
+}
+
+enum PaymentKind: String, CaseIterable, Identifiable {
+    case membership = "Gym Membership", personalTraining = "Personal Training", other = "Other"
+    var id: String { rawValue }
+    var icon: String {
+        switch self {
+        case .membership: "building.2.fill"
+        case .personalTraining: "figure.strengthtraining.traditional"
+        case .other: "indianrupeesign.circle.fill"
+        }
+    }
+}
+
+@Model final class GymPayment {
+    var kindRaw: String = PaymentKind.membership.rawValue
+    var amount: Double = 0
+    var date: Date = Date.now
+    var method: String = "UPI"
+    var trainerID: String = ""
+    var sessionsIncluded: Int = 0      // personal-training package size
+    var validFrom: Date?
+    var validTo: Date?
+    var reference: String = ""
+    var notes: String = ""
+    var billType: String = ""          // pdf | jpg
+    @Attribute(.externalStorage) var bill: Data?
+    init() {}
+    var kind: PaymentKind {
+        get { PaymentKind(rawValue: kindRaw) ?? .other }
+        set { kindRaw = newValue.rawValue }
+    }
+}
+
+enum ExpenseCategory: String, CaseIterable, Identifiable {
+    case protein = "Protein", creatine = "Creatine", supplements = "Supplements", food = "Healthy Food",
+         gear = "Gear & Clothing", shoes = "Shoes", equipment = "Home Equipment", medical = "Medical & Tests", other = "Other"
+    var id: String { rawValue }
+    var icon: String {
+        switch self {
+        case .protein: "takeoutbag.and.cup.and.straw.fill"
+        case .creatine: "pills.fill"
+        case .supplements: "cross.vial.fill"
+        case .food: "carrot.fill"
+        case .gear: "tshirt.fill"
+        case .shoes: "shoe.fill"
+        case .equipment: "dumbbell.fill"
+        case .medical: "stethoscope"
+        case .other: "bag.fill"
+        }
+    }
+}
+
+@Model final class Expense {
+    var title: String = ""
+    var categoryRaw: String = ExpenseCategory.other.rawValue
+    var amount: Double = 0
+    var date: Date = Date.now
+    var vendor: String = ""
+    var quantity: String = ""
+    var notes: String = ""
+    var billType: String = ""          // pdf | jpg
+    @Attribute(.externalStorage) var bill: Data?
+    @Attribute(.externalStorage) var photo: Data?
+    init() {}
+    var category: ExpenseCategory {
+        get { ExpenseCategory(rawValue: categoryRaw) ?? .other }
+        set { categoryRaw = newValue.rawValue }
+    }
 }

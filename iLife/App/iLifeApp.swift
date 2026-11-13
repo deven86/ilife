@@ -23,6 +23,7 @@ struct iLifeApp: App {
             let local = ModelConfiguration(schema: schema, cloudKitDatabase: .none)
             container = try! ModelContainer(for: schema, configurations: local)
         }
+        MediaStore.shared.attach(container)
         if UserDefaults.standard.bool(forKey: "healthConnected") {
             HealthKitManager.shared.enableBackgroundWorkoutDetection(container: container)
         }

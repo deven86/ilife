@@ -76,10 +76,19 @@ struct ItemThumbnail: View {
     let illustration: Illustration
     var size: CGFloat = 52
     var corner: CGFloat = 12
+    /// When set, falls back to the photo saved once for this item (kind: "exercise" | "food").
+    var savedKey: (kind: String, name: String)? = nil
+    @ObservedObject private var store = MediaStore.shared
+
+    private var resolved: Data? {
+        if let photo { return photo }
+        if let k = savedKey { return store.photo(k.kind, k.name) }
+        return nil
+    }
 
     var body: some View {
         Group {
-            if let photo, let img = UIImage(data: photo) {
+            if let photo = resolved, let img = UIImage(data: photo) {
                 Image(uiImage: img).resizable().scaledToFill()
             } else {
                 ZStack {
@@ -181,5 +190,35 @@ struct AvatarView: View {
         let parts = name.split(separator: " ").prefix(2)
         let s = parts.compactMap { $0.first.map(String.init) }.joined()
         return s.isEmpty ? "?" : s.uppercased()
+    }
+}
+
+extension ItemThumbnail {
+    static func exercise(_ name: String, equipment: String = "", size: CGFloat = 52, corner: CGFloat = 12) -> ItemThumbnail {
+        ItemThumbnail(photo: nil, illustration: .exercise(name, equipment: equipment), size: size, corner: corner, savedKey: ("exercise", name))
+    }
+    static func food(_ name: String, photo: Data? = nil, size: CGFloat = 52, corner: CGFloat = 12) -> ItemThumbnail {
+        ItemThumbnail(photo: photo, illustration: .food(name), size: size, corner: corner, savedKey: ("food", name))
+    }
+}
+
+/// Thumbnail you can tap to add/replace the photo saved for this item — set once, used everywhere.
+struct SavedPhotoButton: View {
+    let kind: String
+    let name: String
+    var equipment: String = ""
+    var size: CGFloat = 56
+    @ObservedObject private var store = MediaStore.shared
+
+    var body: some View {
+        PhotoSourceButton(onPick: { store.set(kind, name, image: $0) }) {
+            (kind == "food" ? ItemThumbnail.food(name, size: size) : ItemThumbnail.exercise(name, equipment: equipment, size: size))
+                .overlay(alignment: .bottomTrailing) {
+                    Image(systemName: store.photo(kind, name) == nil ? "camera.circle.fill" : "pencil.circle.fill")
+                        .font(.system(size: size * 0.3)).foregroundStyle(.white, .black.opacity(0.6)).offset(x: 4, y: 4)
+                }
+        }
+        .buttonStyle(.plain)
+        .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
     }
 }
