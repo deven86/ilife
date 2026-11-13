@@ -110,7 +110,7 @@ struct NutritionView: View {
 
     /// Core meals always show; extra types (Early Morning, Drinks, Pre/Post-Workout, Other) show once used.
     private var visibleMeals: [MealType] {
-        MealType.allCases.filter { $0.isCore || dayFoods.contains(where: { f in f.meal == $0 }) }
+        MealType.allCases.filter { m in m.isCore || dayFoods.contains { $0.meal == m } }
     }
 
     private func mealSection(_ meal: MealType) -> some View {
