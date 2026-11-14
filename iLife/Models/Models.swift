@@ -170,6 +170,23 @@ enum MealType: String, Codable, CaseIterable, Identifiable {
     var bmrKcal: Double = 0
     var inBodyScore: Double = 0
     var notes: String = ""
+    // Extra values read by AI (0 = not on the sheet)
+    var proteinKg: Double = 0
+    var mineralKg: Double = 0
+    var fatFreeMassKg: Double = 0
+    var waistHipRatio: Double = 0
+    var targetWeightKg: Double = 0
+    var weightControlKg: Double = 0
+    var fatControlKg: Double = 0
+    var muscleControlKg: Double = 0
+    var rightArmKg: Double = 0
+    var leftArmKg: Double = 0
+    var trunkKg: Double = 0
+    var rightLegKg: Double = 0
+    var leftLegKg: Double = 0
+    /// "On-device" or "AI"
+    var readBy: String = "On-device"
+    var aiSummary: String = ""
     @Attribute(.externalStorage) var image: Data?
 
     init(date: Date = .now) { self.date = date }
@@ -258,6 +275,9 @@ enum MedicalDocKind: String, Codable, CaseIterable, Identifiable {
     var note: String = ""
     @Attribute(.externalStorage) var image: Data?
     @Attribute(.externalStorage) var thumbnail: Data?
+    var isVideo: Bool = false
+    var durationSeconds: Double = 0
+    @Attribute(.externalStorage) var video: Data?
     init(date: Date = .now, pose: String, image: Data?, thumbnail: Data?) {
         self.date = date; self.pose = pose; self.image = image; self.thumbnail = thumbnail
     }
@@ -280,7 +300,7 @@ enum ILifeSchema {
     static let models: [any PersistentModel.Type] = [
         FoodEntry.self, WaterEntry.self, WorkoutLog.self, ExerciseSet.self, WorkoutPlan.self, PlanExercise.self,
         InBodyScan.self, MedicalDocument.self, EmergencyContact.self, HealthProfile.self, AppAlarm.self, ProgressPhoto.self,
-        LibraryPhoto.self, CustomFood.self, CustomExercise.self, GymMembership.self, Trainer.self, GymPayment.self, Expense.self
+        BodyMeasurement.self, CoachMessage.self, LibraryPhoto.self, CustomFood.self, CustomExercise.self, GymMembership.self, Trainer.self, GymPayment.self, Expense.self
     ]
 }
 
@@ -422,4 +442,27 @@ enum ExpenseCategory: String, CaseIterable, Identifiable {
         get { ExpenseCategory(rawValue: categoryRaw) ?? .other }
         set { categoryRaw = newValue.rawValue }
     }
+}
+
+
+// MARK: - Body measurements & coach chat
+
+@Model final class BodyMeasurement {
+    var date: Date = Date.now
+    var weightKg: Double = 0
+    var waistCm: Double = 0
+    var chestCm: Double = 0
+    var hipsCm: Double = 0
+    var armCm: Double = 0
+    var thighCm: Double = 0
+    var neckCm: Double = 0
+    var note: String = ""
+    init(date: Date = .now) { self.date = date }
+}
+
+@Model final class CoachMessage {
+    var role: String = "user"      // user | assistant
+    var text: String = ""
+    var date: Date = Date.now
+    init(role: String, text: String) { self.role = role; self.text = text }
 }

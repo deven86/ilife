@@ -125,6 +125,48 @@ final class HealthKitManager: ObservableObject {
         return total / 3600
     }
 
+    // MARK: Trends
+
+    /// One value per day for the last `days` days (sum, or daily average for things like weight / heart rate).
+    func dailySeries(_ id: HKQuantityTypeIdentifier, unit: HKUnit, days: Int, average: Bool = false) async -> [DayValue] {
+        guard isAvailable else { return [] }
+        let cal = Calendar.current
+        let end = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: .now))!
+        let start = cal.date(byAdding: .day, value: -days, to: end)!
+        let descriptor = HKStatisticsCollectionQueryDescriptor(
+            predicate: .quantitySample(type: HKQuantityType(id), predicate: HKQuery.predicateForSamples(withStart: start, end: end)),
+            options: average ? .discreteAverage : .cumulativeSum,
+            anchorDate: start,
+            intervalComponents: DateComponents(day: 1))
+        guard let collection = try? await descriptor.result(for: store) else { return [] }
+        var out: [DayValue] = []
+        for stats in collection.statistics() where stats.startDate >= start && stats.startDate < end {
+            let q = average ? stats.averageQuantity() : stats.sumQuantity()
+            if let v = q?.doubleValue(for: unit), v > 0 { out.append(DayValue(date: stats.startDate, value: v)) }
+        }
+        return out
+    }
+
+    func sleepSeries(days: Int) async -> [DayValue] {
+        guard isAvailable else { return [] }
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: .now)
+        var out: [DayValue] = []
+        for offset in (0..<days).reversed() {
+            let day = cal.date(byAdding: .day, value: -offset, to: today)!
+            let hours = await sleep(endingOn: day.addingTimeInterval(12 * 3600))
+            if hours > 0 { out.append(DayValue(date: day, value: hours)) }
+        }
+        return out
+    }
+
+    func saveWeight(kg: Double, date: Date = .now) async {
+        guard kg > 0 else { return }
+        let s = HKQuantitySample(type: HKQuantityType(.bodyMass), quantity: HKQuantity(unit: .gramUnit(with: .kilo), doubleValue: kg), start: date, end: date)
+        try? await store.save(s)
+        weightKg = kg
+    }
+
     func recentWorkouts(days: Int = 30) async -> [HKWorkout] {
         let start = Calendar.current.date(byAdding: .day, value: -days, to: .now)!
         let descriptor = HKSampleQueryDescriptor(
@@ -244,6 +286,12 @@ final class HealthKitManager: ObservableObject {
         let s = try? await descriptor.result(for: store)
         return Int(s?.first?.quantity.doubleValue(for: HKUnit.count().unitDivided(by: .minute())) ?? 0)
     }
+}
+
+struct DayValue: Identifiable, Hashable {
+    var id: Date { date }
+    let date: Date
+    let value: Double
 }
 
 extension HKWorkoutActivityType {
