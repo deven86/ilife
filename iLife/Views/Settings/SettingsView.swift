@@ -37,34 +37,31 @@ struct SettingsView: View {
                 }
             }
 
-            Section("Theme") {
-                ScrollView(.horizontal, showsIndicators: false) {
+            Section("Look & feel") {
+                NavigationLink { ThemeGalleryView() } label: {
                     HStack(spacing: 12) {
-                        ForEach(AppTheme.allCases) { t in
-                            Button {
-                                theme.theme = t
-                                theme.setWallpaper(nil)
-                            } label: {
-                                VStack(spacing: 6) {
-                                    ThemeWallpaper(theme: t)
-                                        .frame(width: 88, height: 130)
-                                        .clipShape(RoundedRectangle(cornerRadius: 14))
-                                        .overlay(RoundedRectangle(cornerRadius: 14)
-                                            .stroke(theme.theme == t && theme.customWallpaper == nil ? t.accent : .clear, lineWidth: 3))
-                                    Text(t.title).font(.caption2)
-                                }
-                            }
-                            .buttonStyle(.plain)
+                        ThemeWallpaper(theme: theme.current, animated: false)
+                            .frame(width: 54, height: 54).clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Themes").font(.headline)
+                            Text(theme.autoByTime ? "Following time of day · \(theme.current.title)" : theme.customWallpaper != nil ? "Your photo · \(theme.theme.title) colours" : theme.theme.title)
+                                .font(.caption).foregroundStyle(.secondary)
                         }
                     }
-                    .padding(.vertical, 6)
                 }
-                PhotosPicker(selection: $wallpaperItem, matching: .images) {
-                    Label("Use my own photo as wallpaper", systemImage: "photo.on.rectangle")
+            }
+
+            Section("Smart features") {
+                NavigationLink { AISettingsView() } label: {
+                    HStack {
+                        Label("AI Assistant", systemImage: "sparkles")
+                        Spacer()
+                        Text(AIService.shared.hasKey ? "On" : "Off").foregroundStyle(.secondary)
+                    }
                 }
-                if theme.customWallpaper != nil {
-                    Button("Remove custom wallpaper", role: .destructive) { theme.setWallpaper(nil) }
-                }
+                NavigationLink { CoachView() } label: { Label("Coach", systemImage: "bubble.left.and.text.bubble.right.fill") }
+                NavigationLink { TrendsView() } label: { Label("Trends", systemImage: "chart.xyaxis.line") }
+                NavigationLink { AchievementsView() } label: { Label("Achievements", systemImage: "trophy.fill") }
             }
 
             Section("Security") {
@@ -107,7 +104,8 @@ struct SettingsView: View {
 
             Section("iCloud") {
                 HStack { Label("iCloud sync", systemImage: "icloud.fill"); Spacer(); Text(iCloudStatus).foregroundStyle(.secondary) }
-                Text("All iLife data is stored in your private iCloud database and syncs between your iPhone and iPad.")
+                NavigationLink { SyncStatusView() } label: { Label("Sync status", systemImage: "arrow.triangle.2.circlepath") }
+                Text("iLife keeps your data in your private iCloud database so your iPhone and iPad stay in step.")
                     .font(.caption).foregroundStyle(.secondary)
             }
 
@@ -119,11 +117,6 @@ struct SettingsView: View {
         .background { WallpaperView() }
         .navigationTitle("More")
         .sheet(isPresented: $showPlaylists) { PlaylistPicker() }
-        .onChange(of: wallpaperItem) { _, item in
-            Task {
-                if let d = try? await item?.loadTransferable(type: Data.self), let img = UIImage(data: d) { theme.setWallpaper(img) }
-            }
-        }
         .task {
             let status = try? await CKContainer(identifier: "iCloud.group.com.jondhale.ilife").accountStatus()
             iCloudStatus = status == .available ? "On" : "Sign in to iCloud"

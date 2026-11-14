@@ -147,6 +147,7 @@ struct WorkoutEditorView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \Trainer.firstName) private var trainers: [Trainer]
+    @Query private var allSets: [ExerciseSet]
 
     struct SetRow: Identifiable { let id = UUID(); var reps: Int; var kg: Double }
     struct Block: Identifiable {
@@ -211,9 +212,10 @@ struct WorkoutEditorView: View {
                     Section {
                         HStack(spacing: 12) {
                             ItemThumbnail.exercise(block.exercise, equipment: block.equipment, size: 44, corner: 10)
-                            VStack(alignment: .leading) {
+                            VStack(alignment: .leading, spacing: 2) {
                                 Text(block.exercise).font(.headline)
                                 if !block.equipment.isEmpty { Text(block.equipment).font(.caption).foregroundStyle(.secondary) }
+                                historyLine(block.exercise)
                             }
                             Spacer()
                             Button(role: .destructive) { blocks.removeAll { $0.id == block.id } } label: { Image(systemName: "trash") }
@@ -269,6 +271,16 @@ struct WorkoutEditorView: View {
         }
     }
 
+    /// "Last time" and "best" for an exercise, so you know what to beat.
+    @ViewBuilder
+    private func historyLine(_ exercise: String) -> some View {
+        let h = ExerciseHistory.make(for: exercise, sets: allSets, excluding: log)
+        if let last = h.lastSummary {
+            Text("Last: \(last)" + (h.bestKg > 0 ? "  ·  Best: \(h.bestKg.clean) kg" : ""))
+                .font(.caption2).foregroundStyle(.orange)
+        }
+    }
+
     private func load() {
         guard let log, blocks.isEmpty else { return }
         name = log.name; category = log.category; start = log.start; minutes = max(1, log.durationMinutes.rounded())
@@ -312,6 +324,14 @@ struct WorkoutEditorView: View {
         target.sessionType = sessionType
         target.trainerID = sessionType == "Personal Training" ? trainerID : ""
 
+        // Personal records: heavier than anything logged before for that exercise.
+        var records: [String] = []
+        for b in blocks where !b.isCardio {
+            let best = ExerciseHistory.make(for: b.exercise, sets: allSets, excluding: target).bestKg
+            let top = b.sets.filter { $0.reps > 0 }.map(\.kg).max() ?? 0
+            if best > 0 && top > best { records.append("\(b.exercise) \(top.clean) kg") }
+        }
+
         (target.sets ?? []).forEach { context.delete($0) }
         var order = 0
         for b in blocks {
@@ -329,6 +349,13 @@ struct WorkoutEditorView: View {
         }
         try? context.save()
         if isNew { Task { await HealthKitManager.shared.saveWorkout(target, activity: .from(category: category)) } }
+        if !records.isEmpty {
+            UserDefaults.standard.set(UserDefaults.standard.integer(forKey: "prCount") + records.count, forKey: "prCount")
+            Celebration.shared.fire(records.count == 1 ? "New personal record" : "\(records.count) new personal records",
+                                    subtitle: records.prefix(2).joined(separator: " · "), icon: "arrow.up.circle.fill")
+        } else if isNew {
+            Celebration.shared.fire("Workout logged", subtitle: "\(Int(minutes)) min · \(Int(target.calories)) kcal", icon: "checkmark.seal.fill")
+        }
         dismiss()
     }
 }

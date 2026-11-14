@@ -1,6 +1,9 @@
 import SwiftUI
 import SwiftData
 import UserNotifications
+import AVKit
+import PhotosUI
+import CoreTransferable
 
 /// Daily progress photos: capture, timeline, before/after compare, share.
 struct TransformationView: View {
@@ -14,7 +17,7 @@ struct TransformationView: View {
     @State private var selecting = false
     @State private var selected: Set<PersistentIdentifier> = []
     @State private var detail: ProgressPhoto?
-    @State private var shareItems: [UIImage] = []
+    @State private var shareItems: [Any] = []
     @State private var showShare = false
 
     static let poses = ["Front", "Side", "Back", "Other"]
@@ -80,13 +83,13 @@ struct TransformationView: View {
             if selecting {
                 ToolbarItemGroup(placement: .bottomBar) {
                     Button("Compare", systemImage: "rectangle.split.2x1") { showCompare = true }
-                        .disabled(selected.count != 2)
+                        .disabled(selected.count != 2 || photos.contains { selected.contains($0.persistentModelID) && $0.isVideo })
                     Spacer()
                     Text("\(selected.count) selected").font(.caption)
                     Spacer()
                     Button("Share", systemImage: "square.and.arrow.up") {
                         shareItems = photos.filter { selected.contains($0.persistentModelID) }.sorted { $0.date < $1.date }
-                            .compactMap { $0.image.flatMap(UIImage.init(data:)) }
+                            .compactMap { $0.shareItem() }
                         showShare = !shareItems.isEmpty
                     }
                     .disabled(selected.isEmpty)
@@ -109,13 +112,14 @@ struct TransformationView: View {
 
     private var summary: some View {
         let sorted = photos.sorted { $0.date < $1.date }
-        let first = sorted.first, last = sorted.last
-        let days = first.map { Calendar.current.dateComponents([.day], from: $0.date, to: .now).day ?? 0 } ?? 0
+        let stills = sorted.filter { !$0.isVideo }
+        let first = stills.first, last = stills.last
+        let days = sorted.first.map { Calendar.current.dateComponents([.day], from: $0.date, to: .now).day ?? 0 } ?? 0
         let w0 = sorted.first { $0.weightKg > 0 }?.weightKg ?? 0
         let w1 = sorted.last { $0.weightKg > 0 }?.weightKg ?? 0
         return VStack(alignment: .leading, spacing: 12) {
             HStack {
-                stat("\(photos.count)", "photos")
+                stat("\(photos.count)", "entries")
                 Spacer()
                 stat("\(streak)🔥", "day streak")
                 Spacer()
@@ -125,7 +129,7 @@ struct TransformationView: View {
             }
             HStack(spacing: 10) {
                 Button { showCapture = true } label: {
-                    Label(tookToday ? "Add another" : "Take today's photo", systemImage: "camera.fill").frame(maxWidth: .infinity)
+                    Label(tookToday ? "Add another" : "Today's photo / video", systemImage: "camera.fill").frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
                 if let first, let last, first.persistentModelID != last.persistentModelID {
@@ -171,6 +175,13 @@ struct TransformationView: View {
                 }
                 .foregroundStyle(.white).padding(6)
             }
+            .overlay(alignment: .topLeading) {
+                if p.isVideo {
+                    Label(p.durationSeconds > 0 ? "\(Int(p.durationSeconds))s" : "Video", systemImage: "play.fill")
+                        .font(.system(size: 10, weight: .bold)).foregroundStyle(.white)
+                        .padding(.horizontal, 6).padding(.vertical, 3).background(.black.opacity(0.55), in: Capsule()).padding(6)
+                }
+            }
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(alignment: .topTrailing) {
                 if selecting {
@@ -195,18 +206,27 @@ struct CaptureProgressSheet: View {
     @State private var weight = ""
     @State private var note = ""
     @State private var showCamera = false
+    @State private var showVideoCamera = false
+    @State private var videoURL: URL?
+    @State private var videoItem: PhotosPickerItem?
+    @State private var videoSeconds = 0.0
+    @State private var saving = false
 
     var body: some View {
         NavigationStack {
             Form {
                 Section {
-                    if let image {
+                    if let videoURL {
+                        VideoPlayer(player: AVPlayer(url: videoURL)).frame(height: 320).clipShape(RoundedRectangle(cornerRadius: 12))
+                    } else if let image {
                         Image(uiImage: image).resizable().scaledToFit().frame(maxHeight: 360).frame(maxWidth: .infinity)
                     }
                     if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                        Button(image == nil ? "Open camera" : "Retake", systemImage: "camera.fill") { showCamera = true }
+                        Button(image == nil ? "Take photo" : "Retake photo", systemImage: "camera.fill") { showCamera = true }
+                        Button(videoURL == nil ? "Record video (up to 30 s)" : "Record again", systemImage: "video.fill") { showVideoCamera = true }
                     }
-                    PhotoSourceButton(onPick: { image = $0 }) { Label("Choose from Library", systemImage: "photo.on.rectangle") }
+                    PhotoSourceButton(onPick: { image = $0; videoURL = nil }) { Label("Choose photo from Library", systemImage: "photo.on.rectangle") }
+                    PhotosPicker(selection: $videoItem, matching: .videos) { Label("Choose video from Library", systemImage: "film") }
                 } footer: {
                     Text("Tip: same place, same light, same pose every day — that's what makes the comparison honest.")
                 }
@@ -226,28 +246,120 @@ struct CaptureProgressSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        guard let image else { return }
-                        let p = ProgressPhoto(date: date, pose: pose, image: ImageTools.jpeg(image, maxSide: 2000, quality: 0.85),
-                                              thumbnail: ImageTools.thumbnail(image))
-                        p.weightKg = Double(weight.replacingOccurrences(of: ",", with: ".")) ?? 0
-                        p.note = note
-                        context.insert(p)
-                        try? context.save()
-                        dismiss()
-                    }
-                    .disabled(image == nil)
+                    Button("Save") { save() }
+                        .disabled((image == nil && videoURL == nil) || saving)
                 }
             }
             .fullScreenCover(isPresented: $showCamera) {
                 CameraPicker(device: .front) { img in
                     showCamera = false
-                    if let img { image = img }
+                    if let img { image = img; videoURL = nil }
                 }
                 .ignoresSafeArea()
             }
+            .fullScreenCover(isPresented: $showVideoCamera) {
+                VideoCameraPicker { url in
+                    showVideoCamera = false
+                    if let url { Task { await useVideo(url) } }
+                }
+                .ignoresSafeArea()
+            }
+            .onChange(of: videoItem) { _, item in
+                guard let item else { return }
+                Task {
+                    if let movie = try? await item.loadTransferable(type: PickedMovie.self) { await useVideo(movie.url) }
+                    videoItem = nil
+                }
+            }
             .onAppear { if defaultWeight > 0 { weight = defaultWeight.clean } }
         }
+    }
+
+    private func useVideo(_ url: URL) async {
+        let asset = AVURLAsset(url: url)
+        videoSeconds = ((try? await asset.load(.duration))?.seconds) ?? 0
+        let gen = AVAssetImageGenerator(asset: asset)
+        gen.appliesPreferredTrackTransform = true
+        gen.maximumSize = CGSize(width: 1200, height: 1200)
+        if let cg = try? await gen.image(at: CMTime(seconds: min(0.5, videoSeconds / 2), preferredTimescale: 600)).image {
+            image = UIImage(cgImage: cg)
+        }
+        videoURL = url
+    }
+
+    private func save() {
+        saving = true
+        let p = ProgressPhoto(date: date, pose: pose,
+                              image: image.flatMap { ImageTools.jpeg($0, maxSide: 2000, quality: 0.85) },
+                              thumbnail: image.flatMap { ImageTools.thumbnail($0) })
+        if let videoURL, let data = try? Data(contentsOf: videoURL) {
+            p.isVideo = true
+            p.video = data
+            p.durationSeconds = videoSeconds
+        }
+        p.weightKg = Double(weight.replacingOccurrences(of: ",", with: ".")) ?? 0
+        p.note = note
+        context.insert(p)
+        try? context.save()
+        Haptics.success()
+        dismiss()
+    }
+}
+
+/// A video picked from the photo library, copied to a temp file we own.
+struct PickedMovie: Transferable {
+    let url: URL
+    static var transferRepresentation: some TransferRepresentation {
+        FileRepresentation(contentType: .movie) { movie in
+            SentTransferredFile(movie.url)
+        } importing: { received in
+            let dest = FileManager.default.temporaryDirectory.appendingPathComponent("picked-\(UUID().uuidString).\(received.file.pathExtension.isEmpty ? "mov" : received.file.pathExtension)")
+            try FileManager.default.copyItem(at: received.file, to: dest)
+            return PickedMovie(url: dest)
+        }
+    }
+}
+
+/// Camera in video mode (front camera, medium quality, 30 s max — keeps iCloud storage small).
+struct VideoCameraPicker: UIViewControllerRepresentable {
+    let onFinish: (URL?) -> Void
+    func makeCoordinator() -> Coordinator { Coordinator(onFinish: onFinish) }
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let vc = UIImagePickerController()
+        vc.sourceType = .camera
+        vc.mediaTypes = ["public.movie"]
+        vc.cameraCaptureMode = .video
+        vc.videoQuality = .typeMedium
+        vc.videoMaximumDuration = 30
+        if UIImagePickerController.isCameraDeviceAvailable(.front) { vc.cameraDevice = .front }
+        vc.delegate = context.coordinator
+        return vc
+    }
+    func updateUIViewController(_ vc: UIImagePickerController, context: Context) {}
+    final class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        let onFinish: (URL?) -> Void
+        init(onFinish: @escaping (URL?) -> Void) { self.onFinish = onFinish }
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+            onFinish(info[.mediaURL] as? URL)
+        }
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) { onFinish(nil) }
+    }
+}
+
+extension ProgressPhoto {
+    /// Writes the video to a temp file for playback or sharing.
+    func videoFileURL() -> URL? {
+        guard isVideo, let video else { return nil }
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("progress", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let url = dir.appendingPathComponent("iLife-\(Int(date.timeIntervalSince1970)).mov")
+        if !FileManager.default.fileExists(atPath: url.path) { try? video.write(to: url) }
+        return url
+    }
+
+    func shareItem() -> Any? {
+        if isVideo { return videoFileURL() }
+        return image.flatMap(UIImage.init(data:))
     }
 }
 
@@ -263,7 +375,9 @@ struct ProgressDetailView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 14) {
-                    if let d = photo.image, let img = UIImage(data: d) {
+                    if photo.isVideo, let url = photo.videoFileURL() {
+                        VideoPlayer(player: AVPlayer(url: url)).frame(height: 460).clipShape(RoundedRectangle(cornerRadius: 16))
+                    } else if let d = photo.image, let img = UIImage(data: d) {
                         Image(uiImage: img).resizable().scaledToFit().clipShape(RoundedRectangle(cornerRadius: 16))
                     }
                     VStack(alignment: .leading, spacing: 10) {
@@ -291,7 +405,7 @@ struct ProgressDetailView: View {
                     Button(role: .destructive) { context.delete(photo); dismiss() } label: { Image(systemName: "trash") }
                 }
             }
-            .sheet(isPresented: $showShare) { ShareSheet(items: [photo.image.flatMap(UIImage.init(data:))].compactMap { $0 }) }
+            .sheet(isPresented: $showShare) { ShareSheet(items: [photo.shareItem()].compactMap { $0 }) }
         }
     }
 }

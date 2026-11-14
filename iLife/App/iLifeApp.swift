@@ -24,6 +24,7 @@ struct iLifeApp: App {
             container = try! ModelContainer(for: schema, configurations: local)
         }
         MediaStore.shared.attach(container)
+        SyncMonitor.shared.start()
         if UserDefaults.standard.bool(forKey: "healthConnected") {
             HealthKitManager.shared.enableBackgroundWorkoutDetection(container: container)
         }
@@ -33,6 +34,7 @@ struct iLifeApp: App {
         WindowGroup {
             ZStack {
                 RootView()
+                CelebrationOverlay()
                 if lock.lockEnabled && !lock.isUnlocked {
                     LockScreenView().transition(.opacity)
                 }
@@ -43,8 +45,8 @@ struct iLifeApp: App {
             .environmentObject(health)
             .environmentObject(session)
             .environmentObject(music)
-            .tint(theme.theme.accent)
-            .preferredColorScheme(theme.theme.colorScheme)
+            .tint(theme.current.accent)
+            .preferredColorScheme(theme.current.colorScheme)
         }
         .modelContainer(container)
         .onChange(of: scenePhase) { _, phase in

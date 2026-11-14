@@ -12,16 +12,16 @@ struct HealthHubView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                TransformationCard(photos: progress)
-                inBodyCard
+                TransformationCard(photos: progress).appear(0)
+                inBodyCard.appear(1)
                 if scans.count > 1 { trendCard }
                 NavigationLink { InBodyListView() } label: {
                     Label("All InBody results (\(scans.count))", systemImage: "list.bullet.rectangle").frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .glassCard(cornerRadius: 16, padding: 14)
 
-                vaultCard
-                emergencyCard
+                vaultCard.appear(2)
+                emergencyCard.appear(3)
             }
             .padding()
         }
@@ -53,6 +53,9 @@ struct HealthHubView: View {
                         if s.visceralFatLevel > 0 { stat("Visceral Fat", s.visceralFatLevel, "lvl", previous: nil, lowerIsBetter: true) }
                     }
                     Image(systemName: "figure.stand").font(.system(size: 80, weight: .ultraLight)).foregroundStyle(.cyan.opacity(0.7))
+                }
+                if !s.aiSummary.isEmpty {
+                    Label(s.aiSummary, systemImage: "sparkles").font(.caption).foregroundStyle(.secondary).lineLimit(4)
                 }
             } else {
                 Text("Scan your InBody result sheet or upload the PDF. iLife reads the numbers automatically and tracks every test over time.")

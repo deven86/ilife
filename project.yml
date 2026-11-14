@@ -9,7 +9,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.3.0"
+    MARKETING_VERSION: "1.0.0"
     CURRENT_PROJECT_VERSION: "1"
     DEVELOPMENT_TEAM: ""          # passed in CI as DEVELOPMENT_TEAM=...
     CODE_SIGN_STYLE: Automatic
@@ -45,7 +45,8 @@ targets:
         NSHealthShareUsageDescription: iLife reads steps, sleep, heart rate, workouts, nutrition and body measurements from Apple Health to build your dashboard.
         NSHealthUpdateUsageDescription: iLife saves your meals, water, workouts and InBody results to Apple Health.
         NSFaceIDUsageDescription: iLife uses Face ID to protect your health and medical records.
-        NSCameraUsageDescription: iLife uses the camera to scan InBody results and medical reports.
+        NSCameraUsageDescription: iLife uses the camera for progress photos and videos, meal photos, and to scan InBody results, bills and medical reports.
+        NSMicrophoneUsageDescription: iLife records sound with your transformation videos.
         NSPhotoLibraryUsageDescription: iLife lets you pick InBody results and reports from your photos.
         NSAppleMusicUsageDescription: iLife plays your Apple Music workout playlist when a session starts.
         NSSupportsLiveActivities: true

@@ -49,12 +49,14 @@ struct ActiveWorkoutView: View {
                         if session.exerciseIndex + 1 < session.exercises.count {
                             Text("Next: \(session.exercises[session.exerciseIndex + 1])").font(.caption).foregroundStyle(.secondary)
                         }
-                        Button("Next exercise", systemImage: "forward.fill") { session.nextExercise() }
+                        Button("Next exercise", systemImage: "forward.fill") { Haptics.thump(); withAnimation(.spring) { session.nextExercise() } }
                             .buttonStyle(.bordered)
                             .disabled(session.exerciseIndex + 1 >= session.exercises.count)
                     }
                     .glassCard().padding(.horizontal)
                 }
+
+                RestTimerCard().padding(.horizontal)
 
                 musicCard.padding(.horizontal)
 
@@ -77,7 +79,14 @@ struct ActiveWorkoutView: View {
             .padding(.top)
         }
         .confirmationDialog("End workout?", isPresented: $confirmEnd, titleVisibility: .visible) {
-            Button("Save workout") { Task { await session.finish(context: context, save: true); dismiss() } }
+            Button("Save workout") {
+                let mins = Int(session.elapsed / 60), kcal = Int(session.calories)
+                Task {
+                    await session.finish(context: context, save: true)
+                    dismiss()
+                    Celebration.shared.fire("Workout complete", subtitle: "\(mins) min · \(kcal) kcal", icon: "figure.strengthtraining.traditional")
+                }
+            }
             Button("Discard", role: .destructive) { Task { await session.finish(context: context, save: false); dismiss() } }
         }
         .sheet(isPresented: $showPlaylists) { PlaylistPicker() }
@@ -141,5 +150,46 @@ struct PlaylistPicker: View {
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
             .task { await music.loadPlaylists() }
         }
+    }
+}
+
+/// Rest countdown between sets, with a haptic when it's time to go again.
+struct RestTimerCard: View {
+    @State private var end: Date?
+    @State private var total: TimeInterval = 60
+    @EnvironmentObject var theme: ThemeManager
+
+    var body: some View {
+        HStack(spacing: 12) {
+            if let end {
+                TimelineView(.periodic(from: .now, by: 0.25)) { ctx in
+                    let left = max(0, end.timeIntervalSince(ctx.date))
+                    HStack(spacing: 12) {
+                        ZStack {
+                            ProgressRing(progress: left / max(total, 1), color: theme.current.accent, lineWidth: 5)
+                            Text("\(Int(left.rounded(.up)))").font(.headline.monospacedDigit())
+                        }
+                        .frame(width: 48, height: 48)
+                        VStack(alignment: .leading) {
+                            Text(left > 0 ? "Rest" : "Go!").font(.headline).foregroundStyle(left > 0 ? Color.primary : Color.green)
+                            Text(left > 0 ? "Breathe. Next set soon." : "Time for the next set.").font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                    .onChange(of: left <= 0) { _, done in if done { Haptics.success() } }
+                }
+                Spacer()
+                Button("+15s") { self.end = end.addingTimeInterval(15); total += 15 }.buttonStyle(.bordered).controlSize(.small)
+                Button { self.end = nil } label: { Image(systemName: "xmark") }.buttonStyle(.bordered).controlSize(.small)
+            } else {
+                Image(systemName: "timer").font(.title3).foregroundStyle(theme.current.accent)
+                Text("Rest timer").font(.subheadline.bold())
+                Spacer()
+                ForEach([45, 60, 90, 120], id: \.self) { s in
+                    Button("\(s)s") { Haptics.tap(); total = TimeInterval(s); end = Date.now.addingTimeInterval(TimeInterval(s)) }
+                        .buttonStyle(.bordered).controlSize(.small)
+                }
+            }
+        }
+        .glassCard(cornerRadius: 18, padding: 12)
     }
 }
