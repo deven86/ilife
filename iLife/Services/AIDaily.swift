@@ -215,6 +215,16 @@ enum AIContext {
                 lines.append("    - \(ex): \(detail)")
             }
         }
+        let meds = ((try? ctx.fetch(FetchDescriptor<MeditationLog>())) ?? []).filter { cal.isDate($0.date, inSameDayAs: d0) }
+        let medWeek = ((try? ctx.fetch(FetchDescriptor<MeditationLog>())) ?? []).filter { $0.date >= week[0] && $0.date < d1 }
+        var medLine = "MEDITATION — "
+        if meds.isEmpty { medLine += "none this day" }
+        for (k, m) in meds.enumerated() {
+            medLine += (k > 0 ? ", " : "") + "\(m.title) \(Int(m.minutes)) min"
+            if m.moodBefore > 0 && m.moodAfter > 0 { medLine += " (mood \(m.moodBefore)→\(m.moodAfter) of 5)" }
+        }
+        medLine += "; \(Int(medWeek.reduce(0) { $0 + $1.minutes })) min over the last 7 days"
+        lines.append(medLine)
         lines.append("SUPPLEMENTS — \(s.dosesTaken) of \(s.dosesPlanned) doses ticked")
         for sup in supplements.filter({ !$0.isFinished && !$0.isPaused }) {
             let taken = doses.filter { $0.supplementUID == sup.uid && cal.isDate($0.day, inSameDayAs: d0) }.map(\.slot)

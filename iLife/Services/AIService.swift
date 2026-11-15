@@ -231,6 +231,24 @@ final class AIService: ObservableObject {
         return try decode(MealAIResult.self, from: reply)
     }
 
+    struct MeditationAI: Codable { var title: String; var steps: [CustomStep] }
+
+    /// Writes a guided meditation script for how the person feels right now.
+    func makeMeditation(feeling: String, minutes: Int, language: MLang, context: String) async throws -> MeditationAI {
+        let langName = language == .english ? "simple, warm Indian English" : "simple, warm Hindi in Devanagari script"
+        let system = """
+        You write guided meditation scripts that an iPhone voice will read aloud, slowly, in \(langName).
+        Return ONLY one JSON object: {"title": "short title", "steps": [{"say": "one or two calm sentences", "pauseAfter": seconds of silence after}]}.
+        Total length should be about \(minutes) minutes: roughly 13 characters of text per second of speech, plus all pauseAfter values.
+        Structure: settle and close the eyes; a few slow breaths with counts; the main practice tailored to how they feel; a gentle return; open the eyes.
+        Use pauses of 5-40 seconds; longer pauses in the middle. Short sentences. No emojis, no stage directions, no headings, no music cues.
+        Never mention medical treatment or diagnose anything.
+        """
+        let prompt = "How I feel / what I need: \(feeling.isEmpty ? "just a calm reset" : feeling)\n\nMy recent data (for context only):\n\(context)"
+        let reply = try await send(system: system, turns: [.init(role: "user", text: prompt)], maxTokens: 6000)
+        return try decode(MeditationAI.self, from: reply)
+    }
+
     func analyzeMeal(_ image: UIImage, note: String) async throws -> MealAIResult {
         let system = """
         You estimate nutrition from a photo of food, with strong knowledge of Indian home and restaurant food.

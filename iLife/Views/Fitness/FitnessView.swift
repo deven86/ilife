@@ -25,11 +25,11 @@ struct FitnessView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 Picker("", selection: $tab) {
-                    Text("History").tag(0); Text("Plans").tag(1); Text("Gym").tag(2)
+                    Text("History").tag(0); Text("Plans").tag(1); Text("Gym").tag(2); Text("Mind").tag(3)
                 }
                 .pickerStyle(.segmented)
 
-                if tab != 2 {
+                if tab < 2 {
                 HStack(spacing: 12) {
                     Button { showQuickStart = true } label: { Label("Start Workout", systemImage: "play.fill").frame(maxWidth: .infinity) }
                         .buttonStyle(.borderedProminent).controlSize(.large).disabled(session.isActive)
@@ -41,7 +41,8 @@ struct FitnessView: View {
                 switch tab {
                 case 0: history
                 case 1: plansList
-                default: GymSection()
+                case 2: GymSection()
+                default: MindSection()
                 }
             }
             .padding()

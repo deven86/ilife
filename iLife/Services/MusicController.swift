@@ -49,9 +49,9 @@ final class MusicController: ObservableObject {
         }
     }
 
-    /// Called when a workout session starts.
-    func startWorkoutMusic() async {
-        guard autoPlay, authorization == .authorized else { return }
+    /// Called when a workout (or, with force, a meditation) starts.
+    func startWorkoutMusic(force: Bool = false) async {
+        guard autoPlay || force, authorization == .authorized else { return }
         if playlists.isEmpty { await loadPlaylists() }
         if let p = selectedPlaylist ?? playlists.first { await play(p) }
     }
@@ -65,6 +65,7 @@ final class MusicController: ObservableObject {
     func skip() async { try? await player.skipToNextEntry(); refreshNowPlaying() }
     func previous() async { try? await player.skipToPreviousEntry(); refreshNowPlaying() }
     func stop() { player.stop(); isPlaying = false }
+    func pauseIfPlaying() { if player.state.playbackStatus == .playing { player.pause(); isPlaying = false } }
 
     func refreshNowPlaying() {
         nowPlaying = player.queue.currentEntry?.title

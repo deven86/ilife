@@ -107,6 +107,28 @@ DEFINE SCHEMA
         GRANT READ TO "_world"
     );
 
+    RECORD TYPE CD_CustomMeditation (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        CD_entityName STRING QUERYABLE,
+        CD_created TIMESTAMP,
+        CD_language STRING,
+        CD_language_ckAsset ASSET,
+        CD_stepsJSON STRING,
+        CD_stepsJSON_ckAsset ASSET,
+        CD_title STRING,
+        CD_title_ckAsset ASSET,
+        CD_uid STRING,
+        CD_uid_ckAsset ASSET,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
     RECORD TYPE CD_DailyReview (
         "___createTime" TIMESTAMP,
         "___createdBy"  REFERENCE,
@@ -450,6 +472,36 @@ DEFINE SCHEMA
         CD_kindRaw_ckAsset ASSET,
         CD_notes STRING,
         CD_notes_ckAsset ASSET,
+        CD_title STRING,
+        CD_title_ckAsset ASSET,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE CD_MeditationLog (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        CD_entityName STRING QUERYABLE,
+        CD_category STRING,
+        CD_category_ckAsset ASSET,
+        CD_completed INT64,
+        CD_date TIMESTAMP,
+        CD_language STRING,
+        CD_language_ckAsset ASSET,
+        CD_minutes DOUBLE,
+        CD_moodAfter INT64,
+        CD_moodBefore INT64,
+        CD_note STRING,
+        CD_note_ckAsset ASSET,
+        CD_sessionID STRING,
+        CD_sessionID_ckAsset ASSET,
+        CD_soundscape STRING,
+        CD_soundscape_ckAsset ASSET,
         CD_title STRING,
         CD_title_ckAsset ASSET,
         GRANT WRITE TO "_creator",

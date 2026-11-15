@@ -35,6 +35,7 @@ final class HealthKitManager: ObservableObject {
                                               .leanBodyMass, .dietaryWater, .dietaryEnergyConsumed, .distanceWalkingRunning]
         q.forEach { s.insert(HKQuantityType($0)) }
         s.insert(HKCategoryType(.sleepAnalysis))
+        s.insert(HKCategoryType(.mindfulSession))
         return s
     }
 
@@ -43,6 +44,7 @@ final class HealthKitManager: ObservableObject {
         let q: [HKQuantityTypeIdentifier] = [.dietaryEnergyConsumed, .dietaryProtein, .dietaryCarbohydrates, .dietaryFatTotal,
                                               .dietaryWater, .bodyMass, .bodyFatPercentage, .leanBodyMass, .activeEnergyBurned]
         q.forEach { s.insert(HKQuantityType($0)) }
+        s.insert(HKCategoryType(.mindfulSession))
         return s
     }
 
@@ -158,6 +160,15 @@ final class HealthKitManager: ObservableObject {
             if hours > 0 { out.append(DayValue(date: day, value: hours)) }
         }
         return out
+    }
+
+    /// Saves meditation time to Apple Health as Mindful Minutes (asks permission the first time).
+    func saveMindful(start: Date, end: Date) async {
+        guard isAvailable, end > start else { return }
+        let type = HKCategoryType(.mindfulSession)
+        try? await store.requestAuthorization(toShare: [type], read: [type])
+        let sample = HKCategorySample(type: type, value: HKCategoryValue.notApplicable.rawValue, start: start, end: end)
+        try? await store.save(sample)
     }
 
     func saveWeight(kg: Double, date: Date = .now) async {

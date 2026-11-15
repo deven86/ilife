@@ -301,7 +301,8 @@ enum ILifeSchema {
         FoodEntry.self, WaterEntry.self, WorkoutLog.self, ExerciseSet.self, WorkoutPlan.self, PlanExercise.self,
         InBodyScan.self, MedicalDocument.self, EmergencyContact.self, HealthProfile.self, AppAlarm.self, ProgressPhoto.self,
         BodyMeasurement.self, CoachMessage.self, LibraryPhoto.self, CustomFood.self, CustomExercise.self, GymMembership.self, Trainer.self, GymPayment.self, Expense.self,
-        Supplement.self, SupplementDose.self, DailyReview.self, ExerciseMedia.self
+        Supplement.self, SupplementDose.self, DailyReview.self, ExerciseMedia.self,
+        MeditationLog.self, CustomMeditation.self
     ]
 }
 
@@ -628,4 +629,37 @@ extension Array where Element == WorkoutLog {
         let days = Set(self.filter { $0.isPT && (trainerID == nil || $0.trainerID == trainerID) }.map { cal.startOfDay(for: $0.start) })
         return days.sorted(by: >)
     }
+}
+
+
+// MARK: - Meditation
+
+@Model final class MeditationLog {
+    var date: Date = Date.now
+    var sessionID: String = ""
+    var title: String = ""
+    var category: String = ""
+    var minutes: Double = 0
+    var language: String = "en"
+    var soundscape: String = ""
+    var moodBefore: Int = 0          // 1…5, 0 = not given
+    var moodAfter: Int = 0
+    var completed: Bool = true
+    var note: String = ""
+    init(date: Date = .now, sessionID: String, title: String, minutes: Double) {
+        self.date = date; self.sessionID = sessionID; self.title = title; self.minutes = minutes
+    }
+}
+
+/// A session the AI wrote for you and you chose to keep.
+@Model final class CustomMeditation {
+    var uid: String = UUID().uuidString
+    var title: String = ""
+    var language: String = "en"
+    var created: Date = Date.now
+    var stepsJSON: String = ""
+    init(title: String, language: String, stepsJSON: String) { self.title = title; self.language = language; self.stepsJSON = stepsJSON }
+
+    var steps: [CustomStep] { (try? JSONDecoder().decode([CustomStep].self, from: Data(stepsJSON.utf8))) ?? [] }
+    var script: MeditationScript { MeditationLibrary.custom(id: "custom-" + uid, title: title, steps: steps, lang: MLang(rawValue: language) ?? .english) }
 }
