@@ -56,9 +56,10 @@ struct SettingsView: View {
                     HStack {
                         Label("AI Assistant", systemImage: "sparkles")
                         Spacer()
-                        Text(AIService.shared.hasKey ? "On" : "Off").foregroundStyle(.secondary)
+                        Text(AIService.shared.isOn ? "On" : "Off").foregroundStyle(.secondary)
                     }
                 }
+                NavigationLink { AIHistoryView() } label: { Label("Plans & reviews history", systemImage: "clock.arrow.circlepath") }
                 NavigationLink { CoachView() } label: { Label("Coach", systemImage: "bubble.left.and.text.bubble.right.fill") }
                 NavigationLink { TrendsView() } label: { Label("Trends", systemImage: "chart.xyaxis.line") }
                 NavigationLink { AchievementsView() } label: { Label("Achievements", systemImage: "trophy.fill") }

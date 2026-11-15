@@ -8,20 +8,49 @@ struct AISettingsView: View {
     @State private var key = ""
     @State private var testing = false
     @State private var result: String?
+    @ObservedObject private var coach = AICoordinator.shared
+
+    private func timeRow(_ title: String, _ minutes: Binding<Int>) -> some View {
+        DatePicker(title, selection: Binding(
+            get: { Calendar.current.date(bySettingHour: minutes.wrappedValue / 60, minute: minutes.wrappedValue % 60, second: 0, of: .now) ?? .now },
+            set: { let c = Calendar.current.dateComponents([.hour, .minute], from: $0); minutes.wrappedValue = (c.hour ?? 0) * 60 + (c.minute ?? 0) }),
+            displayedComponents: .hourAndMinute)
+    }
 
     var body: some View {
         Form {
             Section {
-                Label(ai.hasKey ? "AI is on" : "AI is off", systemImage: ai.hasKey ? "sparkles" : "moon.zzz")
-                    .foregroundStyle(ai.hasKey ? Color.green : Color.secondary)
+                Label(ai.isOn ? "AI mode is on" : "AI mode is off", systemImage: ai.isOn ? "sparkles" : "moon.zzz")
+                    .foregroundStyle(ai.isOn ? Color.green : Color.secondary)
+                Toggle("AI mode", isOn: $ai.enabled).disabled(!ai.hasKey)
             } footer: {
-                Text("AI powers three things: reading InBody sheets accurately, estimating a meal from a photo, and the Coach chat. Everything else in iLife works without it.")
+                Text(ai.hasKey ? "With AI mode off, iLife makes no AI requests at all and everything else keeps working." : "Add your API key below to turn AI mode on.")
+            }
+
+            if ai.isOn {
+                Section {
+                    Toggle("Morning plan", isOn: $coach.autoMorning)
+                    if coach.autoMorning { timeRow("Remind me at", $coach.morningMinutes) }
+                    Toggle("Night review", isOn: $coach.autoNight)
+                    if coach.autoNight { timeRow("Review time", $coach.nightMinutes) }
+                    NavigationLink { AIHistoryView() } label: { Label("Plans & reviews history", systemImage: "clock.arrow.circlepath") }
+                } header: {
+                    Text("Once a day")
+                } footer: {
+                    Text("To keep cost low, iLife asks the AI only twice a day by itself: one plan in the morning (meals with recipes, workout, supplements, priorities) and one full review at night. Each is written the first time you open iLife after that time — iPhone doesn't let apps run on their own at a set hour — and is then saved, so reopening costs nothing. Snap Meal, InBody reading and Coach chat only run when you tap them.")
+                }
+                Section("Usage") {
+                    HStack { Text("AI requests today"); Spacer(); Text("\(ai.callsToday)").foregroundStyle(.secondary) }
+                }
             }
 
             Section {
                 SecureField(ai.hasKey ? "Key saved — paste a new one to replace" : "Paste your Anthropic API key (sk-ant-…)", text: $key)
                     .textInputAutocapitalization(.never).autocorrectionDisabled()
-                Button("Save key") { ai.saveKey(key); key = ""; result = nil; Haptics.success() }.disabled(key.trimmingCharacters(in: .whitespaces).isEmpty)
+                Button("Save key") {
+                    ai.saveKey(key); key = ""; result = nil; Haptics.success()
+                    Task { await NotificationService.requestAuthorization(); coach.scheduleNotifications() }
+                }.disabled(key.trimmingCharacters(in: .whitespaces).isEmpty)
                 if ai.hasKey {
                     Button("Remove key", role: .destructive) { ai.saveKey(""); result = nil }
                 }
@@ -45,7 +74,7 @@ struct AISettingsView: View {
                     testing = true; result = nil
                     Task {
                         do {
-                            let r = try await ai.send(system: "Reply in five words or fewer.", turns: [.init(role: "user", text: "Say hello to iLife.")], maxTokens: 30)
+                            let r = try await ai.send(system: "Reply in five words or fewer.", turns: [.init(role: "user", text: "Say hello to iLife.")], maxTokens: 2000)
                             result = "✓ Working: \(r)"
                         } catch { result = "✗ \(error.localizedDescription)" }
                         testing = false
@@ -84,10 +113,10 @@ struct MealPhotoAISheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                if !ai.hasKey {
+                if !ai.isOn {
                     Section {
-                        Label("Add your AI key first", systemImage: "key.fill").font(.headline)
-                        Text("Snap Meal uses AI to recognise food and estimate calories and macros from a photo.").font(.caption).foregroundStyle(.secondary)
+                        Label("Turn on AI mode first", systemImage: "key.fill").font(.headline)
+                        Text("Snap Meal uses AI to work out calories and macros from a photo or a typed description.").font(.caption).foregroundStyle(.secondary)
                         NavigationLink("Set up AI Assistant") { AISettingsView() }
                     }
                 } else {
@@ -100,9 +129,11 @@ struct MealPhotoAISheet: View {
                             Button(image == nil ? "Take a photo of your meal" : "Retake", systemImage: "camera.fill") { showCamera = true }
                         }
                         PhotoSourceButton(onPick: { image = $0; items = [] }) { Label("Choose from Library", systemImage: "photo.on.rectangle") }
-                        TextField("Anything to add? (e.g. 2 rotis, cooked in ghee)", text: $note, axis: .vertical)
+                        TextField("Or just type what you ate (e.g. 2 rotis, dal, 1 bowl rice, chaas)", text: $note, axis: .vertical)
+                    } footer: {
+                        Text("Use a photo, words, or both.")
                     }
-                    if image != nil && items.isEmpty {
+                    if (image != nil || !note.trimmingCharacters(in: .whitespaces).isEmpty) && items.isEmpty {
                         Section {
                             Button { analyze() } label: {
                                 HStack { Label("Estimate nutrition", systemImage: "sparkles").font(.headline); if working { Spacer(); ProgressView() } }
@@ -155,14 +186,14 @@ struct MealPhotoAISheet: View {
     }
 
     private func analyze() {
-        guard let image else { return }
         working = true; error = nil
         Task {
             do {
-                let r = try await ai.analyzeMeal(image, note: note)
+                let r: MealAIResult
+                if let image { r = try await ai.analyzeMeal(image, note: note) } else { r = try await ai.describeMeal(note) }
                 items = r.items
                 aiNote = r.note ?? ""
-                if items.isEmpty { error = "No food found in that photo. Try a closer, brighter shot." }
+                if items.isEmpty { error = image == nil ? "Couldn't find any food in that description." : "No food found in that photo. Try a closer, brighter shot." }
                 Haptics.success()
             } catch { self.error = error.localizedDescription; Haptics.warning() }
             working = false
@@ -206,7 +237,7 @@ struct CoachView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if !ai.hasKey {
+            if !ai.isOn {
                 ContentUnavailableView {
                     Label("Meet your Coach", systemImage: "sparkles")
                 } description: {

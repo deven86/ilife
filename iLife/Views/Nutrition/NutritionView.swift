@@ -31,8 +31,10 @@ struct NutritionView: View {
                 .glassCard(cornerRadius: 16, padding: 12)
 
                 breakdown
+                if Calendar.current.isDateInToday(day) { AITipCard(area: .nutrition) }
                 water
                 SupplementsCard(day: day)
+                if Calendar.current.isDateInToday(day) { AITipCard(area: .supplements) }
                 ForEach(visibleMeals) { meal in mealSection(meal) }
                 Spacer(minLength: 70)
             }

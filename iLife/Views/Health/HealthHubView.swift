@@ -12,6 +12,7 @@ struct HealthHubView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
+                AITipCard(area: .health)
                 TransformationCard(photos: progress).appear(0)
                 inBodyCard.appear(1)
                 if scans.count > 1 { trendCard }

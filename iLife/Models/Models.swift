@@ -301,7 +301,7 @@ enum ILifeSchema {
         FoodEntry.self, WaterEntry.self, WorkoutLog.self, ExerciseSet.self, WorkoutPlan.self, PlanExercise.self,
         InBodyScan.self, MedicalDocument.self, EmergencyContact.self, HealthProfile.self, AppAlarm.self, ProgressPhoto.self,
         BodyMeasurement.self, CoachMessage.self, LibraryPhoto.self, CustomFood.self, CustomExercise.self, GymMembership.self, Trainer.self, GymPayment.self, Expense.self,
-        Supplement.self, SupplementDose.self
+        Supplement.self, SupplementDose.self, DailyReview.self, ExerciseMedia.self
     ]
 }
 
@@ -584,4 +584,35 @@ enum DoseSlot: String, CaseIterable, Identifiable {
     init(supplementUID: String, slot: String, day: Date) {
         self.supplementUID = supplementUID; self.slot = slot; self.day = day
     }
+}
+
+
+// MARK: - AI daily plan / review history
+
+/// One AI-written morning plan or night review, kept so the history is always there (and never paid for twice).
+@Model final class DailyReview {
+    var day: Date = Date.now              // start of the day it is about
+    var kind: String = "night"            // morning | night
+    var createdAt: Date = Date.now
+    var headline: String = ""
+    var overallScore: Int = 0
+    /// The AI's full answer as JSON (MorningBrief or NightReview).
+    var payload: String = ""
+    /// The numbers the AI was shown (DayStats JSON) — lets history redraw the charts exactly as they were.
+    var stats: String = ""
+    var model: String = ""
+    init(day: Date, kind: String) { self.day = day; self.kind = kind }
+}
+
+// MARK: - Exercise explainer media (saved once per exercise)
+
+@Model final class ExerciseMedia {
+    var key: String = ""                  // normalised exercise name
+    var videoType: String = ""            // mov | mp4 | gif | ""
+    var link: String = ""                 // e.g. a YouTube explainer
+    var cues: String = ""                 // your own form notes
+    var updated: Date = Date.now
+    @Attribute(.externalStorage) var video: Data?
+    @Attribute(.externalStorage) var equipmentPhoto: Data?
+    init(key: String) { self.key = key }
 }

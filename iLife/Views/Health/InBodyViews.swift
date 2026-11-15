@@ -40,7 +40,7 @@ struct InBodyImportView: View {
             Form {
                 if result == nil && !isReading {
                     Section {
-                        Text("Use the camera to scan your InBody result sheet, or upload a photo or the PDF the InBody app emails you. \(ai.hasKey ? "AI reads every value on the sheet and explains the result." : "Numbers are read on your device; turn on AI (More → AI Assistant) for a fuller, more accurate reading.")")
+                        Text("Use the camera to scan your InBody result sheet, or upload a photo or the PDF the InBody app emails you. \(ai.isOn ? "AI reads every value on the sheet and explains the result." : "Numbers are read on your device; turn on AI (More → AI Assistant) for a fuller, more accurate reading.")")
                             .font(.callout).foregroundStyle(.secondary)
                     }
                     Section("Source") {
@@ -71,7 +71,7 @@ struct InBodyImportView: View {
                         } else if let aiError {
                             Label(aiError, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange).font(.caption)
                             Button("Try AI again") { Task { await readWithAI() } }
-                        } else if !ai.hasKey {
+                        } else if !ai.isOn {
                             NavigationLink { AISettingsView() } label: {
                                 Label("Turn on AI for a more accurate, complete reading", systemImage: "sparkles").font(.callout)
                             }
@@ -153,7 +153,7 @@ struct InBodyImportView: View {
     }
 
     private func readWithAI() async {
-        guard ai.hasKey, !images.isEmpty else { return }
+        guard ai.isOn, !images.isEmpty else { return }
         aiReading = true; aiError = nil
         do {
             let x = try await ai.readInBody(images)

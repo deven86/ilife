@@ -25,6 +25,8 @@ struct iLifeApp: App {
         }
         MediaStore.shared.attach(container)
         SyncMonitor.shared.start()
+        AICoordinator.shared.attach(container)
+        AICoordinator.shared.scheduleNotifications()
         if UserDefaults.standard.bool(forKey: "healthConnected") {
             HealthKitManager.shared.enableBackgroundWorkoutDetection(container: container)
         }
@@ -55,7 +57,10 @@ struct iLifeApp: App {
                 // Keep unlocked during an active workout so the session screen stays usable.
                 if !session.isActive { lock.lock() }
             case .active:
-                Task { await health.refreshToday() }
+                Task {
+                    await health.refreshToday()
+                    if lock.isUnlocked || !lock.lockEnabled { await AICoordinator.shared.appBecameActive() }
+                }
             default: break
             }
         }

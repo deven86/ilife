@@ -107,6 +107,32 @@ DEFINE SCHEMA
         GRANT READ TO "_world"
     );
 
+    RECORD TYPE CD_DailyReview (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        CD_entityName STRING QUERYABLE,
+        CD_createdAt TIMESTAMP,
+        CD_day TIMESTAMP,
+        CD_headline STRING,
+        CD_headline_ckAsset ASSET,
+        CD_kind STRING,
+        CD_kind_ckAsset ASSET,
+        CD_model STRING,
+        CD_model_ckAsset ASSET,
+        CD_overallScore INT64,
+        CD_payload STRING,
+        CD_payload_ckAsset ASSET,
+        CD_stats STRING,
+        CD_stats_ckAsset ASSET,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
     RECORD TYPE CD_EmergencyContact (
         "___createTime" TIMESTAMP,
         "___createdBy"  REFERENCE,
@@ -122,6 +148,32 @@ DEFINE SCHEMA
         CD_phone_ckAsset ASSET,
         CD_relation STRING,
         CD_relation_ckAsset ASSET,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE CD_ExerciseMedia (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        CD_entityName STRING QUERYABLE,
+        CD_cues STRING,
+        CD_cues_ckAsset ASSET,
+        CD_equipmentPhoto BYTES,
+        CD_equipmentPhoto_ckAsset ASSET,
+        CD_key STRING,
+        CD_key_ckAsset ASSET,
+        CD_link STRING,
+        CD_link_ckAsset ASSET,
+        CD_updated TIMESTAMP,
+        CD_video BYTES,
+        CD_videoType STRING,
+        CD_videoType_ckAsset ASSET,
+        CD_video_ckAsset ASSET,
         GRANT WRITE TO "_creator",
         GRANT CREATE TO "_icloud",
         GRANT READ TO "_world"

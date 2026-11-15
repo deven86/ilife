@@ -104,6 +104,7 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 14) {
                 header.appear(0)
                 heroCard.appear(1)
+                AIDailyCard().appear(2)
                 coachCarousel.appear(2)
                 quickActions.appear(3)
                 tiles.appear(4)
@@ -124,7 +125,7 @@ struct HomeView: View {
             pushWidget()
             Haptics.tap()
         }
-        .task { pushWidget(); checkGoals() }
+        .task { pushWidget(); checkGoals(); await AICoordinator.shared.appBecameActive() }
         .onChange(of: health.steps) { _, _ in pushWidget(); checkGoals() }
         .onChange(of: proteinEaten) { _, _ in checkGoals() }
         .onChange(of: waterL) { _, _ in checkGoals() }

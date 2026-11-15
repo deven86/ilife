@@ -60,6 +60,7 @@ struct FitnessView: View {
 
     private var history: some View {
         VStack(alignment: .leading, spacing: 12) {
+            AITipCard(area: .fitness)
             VStack(alignment: .leading) {
                 SectionTitle(title: "This Week", trailing: "\(weekLogs.count) sessions · \(Int(weekLogs.reduce(0) { $0 + $1.durationMinutes })) min")
                 Chart {

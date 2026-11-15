@@ -95,7 +95,24 @@ final class AIService: ObservableObject {
         didSet { UserDefaults.standard.set(model, forKey: "aiModel") }
     }
 
-    var isReady: Bool { hasKey }
+    /// Master switch: AI features run only when this is on AND a key is saved.
+    @Published var enabled: Bool = (UserDefaults.standard.object(forKey: "aiEnabled") as? Bool) ?? true {
+        didSet { UserDefaults.standard.set(enabled, forKey: "aiEnabled") }
+    }
+    var isOn: Bool { hasKey && enabled }
+    var isReady: Bool { isOn }
+
+    /// Requests sent today (resets at midnight) — shown in settings so cost is visible.
+    @Published var callsToday: Int = AIService.storedCalls() {
+        didSet {
+            UserDefaults.standard.set(callsToday, forKey: "aiCallsCount")
+            UserDefaults.standard.set(Calendar.current.startOfDay(for: .now).timeIntervalSince1970, forKey: "aiCallsDay")
+        }
+    }
+    private static func storedCalls() -> Int {
+        let day = UserDefaults.standard.double(forKey: "aiCallsDay")
+        return day == Calendar.current.startOfDay(for: .now).timeIntervalSince1970 ? UserDefaults.standard.integer(forKey: "aiCallsCount") : 0
+    }
 
     func saveKey(_ key: String) {
         KeychainStore.set(key.trimmingCharacters(in: .whitespacesAndNewlines), for: "anthropic")
@@ -104,8 +121,17 @@ final class AIService: ObservableObject {
 
     struct Turn { let role: String; let text: String }
 
+    /// How much "thinking" each model does before answering. Thinking counts toward max_tokens and is billed,
+    /// so iLife keeps it at the lowest setting each model accepts.
+    private func tuning(for model: String) -> [String: Any] {
+        if model.contains("sonnet-5-5") { return ["thinking": ["type": "between_tools"], "output_config": ["effort": "low"]] }
+        if model.contains("haiku-5-5") { return ["thinking": ["type": "disabled"], "output_config": ["effort": "low"]] }
+        if model.contains("opus-5-5") { return ["output_config": ["effort": "low"]] }
+        return [:]
+    }
+
     /// One call to the Claude Messages API. Images go with the last user turn.
-    func send(system: String, turns: [Turn], images: [UIImage] = [], maxTokens: Int = 1500) async throws -> String {
+    func send(system: String, turns: [Turn], images: [UIImage] = [], maxTokens: Int = 4000) async throws -> String {
         let key = KeychainStore.get("anthropic")
         guard !key.isEmpty else { throw AIError.noKey }
 
@@ -121,30 +147,54 @@ final class AIService: ObservableObject {
             content.append(["type": "text", "text": turn.text])
             messages.append(["role": turn.role, "content": content])
         }
-        let body: [String: Any] = ["model": model, "max_tokens": maxTokens, "system": system, "messages": messages]
 
-        var req = URLRequest(url: URL(string: "https://api.anthropic.com/v1/messages")!)
-        req.httpMethod = "POST"
-        req.timeoutInterval = 90
-        req.setValue(key, forHTTPHeaderField: "x-api-key")
-        req.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
-        req.setValue("application/json", forHTTPHeaderField: "content-type")
-        req.httpBody = try JSONSerialization.data(withJSONObject: body)
+        // Attempt 1: tuned for the model. Attempt 2: plain request (if a setting was rejected) or a bigger
+        // budget (if the model ran out of room before writing its answer).
+        var limit = max(maxTokens, 2000)
+        var extras = tuning(for: model)
+        var lastProblem = "no answer"
+        for attempt in 0..<3 {
+            var body: [String: Any] = ["model": model, "max_tokens": limit, "system": system, "messages": messages]
+            for (k, v) in extras { body[k] = v }
 
-        let (data, response) = try await URLSession.shared.data(for: req)
-        let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
-        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-        guard status == 200 else {
-            let msg = ((json?["error"] as? [String: Any])?["message"] as? String) ?? "request failed"
-            throw AIError.http(status, msg)
+            var req = URLRequest(url: URL(string: "https://api.anthropic.com/v1/messages")!)
+            req.httpMethod = "POST"
+            req.timeoutInterval = 120
+            req.setValue(key, forHTTPHeaderField: "x-api-key")
+            req.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+            req.setValue("application/json", forHTTPHeaderField: "content-type")
+            req.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+            let (data, response) = try await URLSession.shared.data(for: req)
+            let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            callsToday = AIService.storedCalls() + 1
+
+            if status == 400, !extras.isEmpty, attempt < 2 {
+                extras = [:]          // the model didn't accept a tuning setting — retry without it
+                limit = max(limit, 8000)
+                continue
+            }
+            guard status == 200 else {
+                let msg = ((json?["error"] as? [String: Any])?["message"] as? String) ?? "request failed"
+                throw AIError.http(status, msg)
+            }
+            let blocks = (json?["content"] as? [[String: Any]]) ?? []
+            let text = blocks.filter { ($0["type"] as? String) == "text" }.compactMap { $0["text"] as? String }.joined(separator: "\n")
+            let stop = (json?["stop_reason"] as? String) ?? ""
+            if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && (stop != "max_tokens" || attempt == 2) { return text }
+            if stop == "max_tokens", attempt < 2 {
+                limit = min(limit * 3, 32000)   // ran out of room (thinking uses the same budget) — give it more
+                lastProblem = "ran out of room"
+                continue
+            }
+            if stop == "refusal" { throw AIError.parse("the model declined this request") }
+            lastProblem = stop.isEmpty ? "no text returned" : "stopped: \(stop)"
         }
-        let blocks = (json?["content"] as? [[String: Any]]) ?? []
-        let text = blocks.compactMap { $0["text"] as? String }.joined(separator: "\n")
-        guard !text.isEmpty else { throw AIError.empty }
-        return text
+        throw AIError.parse(lastProblem)
     }
 
-    private func decode<T: Decodable>(_ type: T.Type, from text: String) throws -> T {
+    func decode<T: Decodable>(_ type: T.Type, from text: String) throws -> T {
         guard let s = text.firstIndex(of: "{"), let e = text.lastIndex(of: "}"), s < e else { throw AIError.parse("no JSON") }
         let slice = String(text[s...e])
         do { return try JSONDecoder().decode(T.self, from: Data(slice.utf8)) }
@@ -165,8 +215,20 @@ final class AIService: ObservableObject {
         It is general fitness guidance, not a medical diagnosis.
         """
         let text = try await send(system: system, turns: [.init(role: "user", text: "Read this InBody result sheet and return the JSON.")],
-                                  images: Array(images.prefix(3)), maxTokens: 1200)
+                                  images: Array(images.prefix(3)), maxTokens: 4000)
         return try decode(InBodyAIResult.self, from: text)
+    }
+
+    /// Turns a typed description ("2 rotis, dal, 1 bowl rice, chaas") into food items with macros.
+    func describeMeal(_ text: String) async throws -> MealAIResult {
+        let system = """
+        You convert a person's description of what they ate into nutrition data, with strong knowledge of Indian home and restaurant food.
+        Return ONLY one JSON object: {"items":[{"name":..., "quantity":..., "calories":..., "protein":..., "carbs":..., "fat":...}], "note": ...}.
+        One item per distinct food or drink, using the quantities given (assume a normal home portion when none is given).
+        calories in kcal; protein, carbs, fat in grams as numbers. "note" is one short sentence on assumptions made.
+        """
+        let reply = try await send(system: system, turns: [.init(role: "user", text: text)], maxTokens: 3000)
+        return try decode(MealAIResult.self, from: reply)
     }
 
     func analyzeMeal(_ image: UIImage, note: String) async throws -> MealAIResult {
@@ -178,7 +240,7 @@ final class AIService: ObservableObject {
         "note" is one short sentence on how confident the estimate is. If the photo has no food, return {"items":[],"note":"No food found"}.
         """
         let prompt = note.isEmpty ? "Estimate the nutrition of this meal." : "Estimate the nutrition of this meal. Extra detail from me: \(note)"
-        let text = try await send(system: system, turns: [.init(role: "user", text: prompt)], images: [image], maxTokens: 1200)
+        let text = try await send(system: system, turns: [.init(role: "user", text: prompt)], images: [image], maxTokens: 4000)
         return try decode(MealAIResult.self, from: text)
     }
 
@@ -192,6 +254,6 @@ final class AIService: ObservableObject {
         USER DATA
         \(context)
         """
-        return try await send(system: system, turns: history, maxTokens: 900)
+        return try await send(system: system, turns: history, maxTokens: 4000)
     }
 }
