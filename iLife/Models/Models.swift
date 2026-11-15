@@ -300,7 +300,8 @@ enum ILifeSchema {
     static let models: [any PersistentModel.Type] = [
         FoodEntry.self, WaterEntry.self, WorkoutLog.self, ExerciseSet.self, WorkoutPlan.self, PlanExercise.self,
         InBodyScan.self, MedicalDocument.self, EmergencyContact.self, HealthProfile.self, AppAlarm.self, ProgressPhoto.self,
-        BodyMeasurement.self, CoachMessage.self, LibraryPhoto.self, CustomFood.self, CustomExercise.self, GymMembership.self, Trainer.self, GymPayment.self, Expense.self
+        BodyMeasurement.self, CoachMessage.self, LibraryPhoto.self, CustomFood.self, CustomExercise.self, GymMembership.self, Trainer.self, GymPayment.self, Expense.self,
+        Supplement.self, SupplementDose.self
     ]
 }
 
@@ -369,6 +370,8 @@ enum ILifeSchema {
     var phone: String = ""
     var gymName: String = ""
     var feePerSession: Double = 0
+    /// Sessions already taken before you started logging them in iLife.
+    var priorSessions: Int = 0
     var notes: String = ""
     @Attribute(.externalStorage) var photo: Data?
     init() {}
@@ -465,4 +468,120 @@ enum ExpenseCategory: String, CaseIterable, Identifiable {
     var text: String = ""
     var date: Date = Date.now
     init(role: String, text: String) { self.role = role; self.text = text }
+}
+
+
+// MARK: - Supplements
+
+/// When in the day a supplement is taken. `hour`/`minute` are the default reminder time.
+enum DoseSlot: String, CaseIterable, Identifiable {
+    case emptyStomach = "Empty stomach (morning)"
+    case beforeBreakfast = "Before breakfast", afterBreakfast = "After breakfast"
+    case beforeLunch = "Before lunch", afterLunch = "After lunch"
+    case beforeSnack = "Before snack", afterSnack = "After snack"
+    case preWorkout = "Pre-workout", postWorkout = "Post-workout"
+    case beforeDinner = "Before dinner", afterDinner = "After dinner"
+    case bedtime = "Bedtime"
+    var id: String { rawValue }
+
+    var time: (hour: Int, minute: Int) {
+        switch self {
+        case .emptyStomach: (6, 30)
+        case .beforeBreakfast: (8, 0)
+        case .afterBreakfast: (9, 0)
+        case .beforeLunch: (12, 45)
+        case .afterLunch: (14, 0)
+        case .beforeSnack: (16, 30)
+        case .afterSnack: (17, 15)
+        case .preWorkout: (17, 45)
+        case .postWorkout: (19, 15)
+        case .beforeDinner: (20, 0)
+        case .afterDinner: (21, 15)
+        case .bedtime: (22, 30)
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .emptyStomach: "sun.horizon.fill"
+        case .beforeBreakfast, .afterBreakfast: "sunrise.fill"
+        case .beforeLunch, .afterLunch: "sun.max.fill"
+        case .beforeSnack, .afterSnack: "carrot.fill"
+        case .preWorkout, .postWorkout: "dumbbell.fill"
+        case .beforeDinner, .afterDinner: "moon.stars.fill"
+        case .bedtime: "bed.double.fill"
+        }
+    }
+
+    /// Slots sorted through the day.
+    var order: Int { time.hour * 60 + time.minute }
+}
+
+@Model final class Supplement {
+    var uid: String = UUID().uuidString
+    var name: String = ""
+    var company: String = ""
+    var dose: String = ""                 // e.g. "1 tablet", "1 spoon"
+    /// DoseSlot raw values — one entry per time it's taken in a day.
+    var slots: [String] = []
+    /// Weekdays 1 = Sunday … 7 = Saturday. Empty = every day.
+    var weekdays: [Int] = []
+    var startDate: Date = Date.now
+    var weeks: Int = 4                    // 0 = ongoing, no end
+    var suggestedBy: String = "Self"      // Doctor | Trainer | Dietitian | Self | Other
+    var suggestedByName: String = ""
+    var purpose: String = ""
+    var notes: String = ""
+    var remind: Bool = true
+    var isPaused: Bool = false
+    @Attribute(.externalStorage) var photo: Data?
+    init() {}
+
+    var doseSlots: [DoseSlot] { slots.compactMap(DoseSlot.init(rawValue:)).sorted { $0.order < $1.order } }
+    var timesPerDay: Int { max(slots.count, 1) }
+    var endDate: Date? {
+        weeks > 0 ? Calendar.current.date(byAdding: .day, value: weeks * 7, to: Calendar.current.startOfDay(for: startDate)) : nil
+    }
+    var isFinished: Bool { endDate.map { $0 <= Calendar.current.startOfDay(for: .now) } ?? false }
+    var isCurrent: Bool { !isPaused && !isFinished && Calendar.current.startOfDay(for: startDate) <= .now }
+
+    func isDue(on day: Date) -> Bool {
+        let cal = Calendar.current
+        let d = cal.startOfDay(for: day)
+        guard !isPaused, d >= cal.startOfDay(for: startDate) else { return false }
+        if let end = endDate, d >= end { return false }
+        return weekdays.isEmpty || weekdays.contains(cal.component(.weekday, from: d))
+    }
+
+    /// 1-based week number of the course today.
+    var currentWeek: Int {
+        let days = Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: startDate), to: Calendar.current.startOfDay(for: .now)).day ?? 0
+        return max(1, days / 7 + 1)
+    }
+
+    var scheduleText: String { Supplement.scheduleText(timesPerDay: timesPerDay, weekdays: weekdays, weeks: weeks) }
+
+    /// "twice a day, every day for 4 weeks" / "once a week, every Friday for 3 weeks"
+    static func scheduleText(timesPerDay: Int, weekdays: [Int], weeks: Int) -> String {
+        let cal = Calendar.current
+        let days: String
+        if weekdays.isEmpty || weekdays.count == 7 { days = "every day" }
+        else if weekdays.count == 1 { days = "every " + cal.weekdaySymbols[weekdays[0] - 1] }
+        else { days = "on " + weekdays.sorted().map { cal.shortWeekdaySymbols[$0 - 1] }.joined(separator: ", ") }
+        let times = timesPerDay == 1 ? "once" : timesPerDay == 2 ? "twice" : "\(timesPerDay) times"
+        let perDay = weekdays.count == 1 ? (timesPerDay == 1 ? "once a week" : "\(times) that day") : "\(times) a day"
+        let length = weeks > 0 ? " for \(weeks) week\(weeks == 1 ? "" : "s")" : ", ongoing"
+        return "\(perDay), \(days)\(length)"
+    }
+}
+
+/// One dose ticked off.
+@Model final class SupplementDose {
+    var supplementUID: String = ""
+    var slot: String = ""
+    var day: Date = Date.now          // start of the day it was for
+    var takenAt: Date = Date.now
+    init(supplementUID: String, slot: String, day: Date) {
+        self.supplementUID = supplementUID; self.slot = slot; self.day = day
+    }
 }

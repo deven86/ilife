@@ -32,6 +32,7 @@ struct NutritionView: View {
 
                 breakdown
                 water
+                SupplementsCard(day: day)
                 ForEach(visibleMeals) { meal in mealSection(meal) }
                 Spacer(minLength: 70)
             }

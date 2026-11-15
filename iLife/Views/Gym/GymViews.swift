@@ -103,7 +103,7 @@ struct GymSection: View {
     }
 
     // Trainers
-    private func sessionsDone(_ t: Trainer) -> Int { logs.filter { $0.isPT && $0.trainerID == t.uid }.count }
+    private func sessionsDone(_ t: Trainer) -> Int { logs.filter { $0.isPT && $0.trainerID == t.uid }.count + t.priorSessions }
     private func sessionsPaid(_ t: Trainer) -> Int { payments.filter { $0.kind == .personalTraining && $0.trainerID == t.uid }.reduce(0) { $0 + $1.sessionsIncluded } }
 
     private var trainersCard: some View {
@@ -125,8 +125,9 @@ struct GymSection: View {
                                 Text(t.fullName).font(.caption.bold()).lineLimit(1)
                                 if !t.speciality.isEmpty { Text(t.speciality).font(.caption2).foregroundStyle(.secondary).lineLimit(1) }
                                 let paid = sessionsPaid(t), done = sessionsDone(t)
-                                Text(paid > 0 ? "\(done)/\(paid) sessions" : "\(done) sessions")
+                                Text(paid > 0 ? "\(done) of \(paid) used" : "\(done) sessions")
                                     .font(.caption2.bold()).foregroundStyle(paid > 0 && done >= paid ? .orange : .green)
+                                if paid > 0 { Text("\(max(paid - done, 0)) left").font(.caption2).foregroundStyle(.secondary) }
                             }
                             .frame(width: 110)
                         }
@@ -417,6 +418,19 @@ struct TrainerEditor: View {
     @State private var fee = ""
     @State private var notes = ""
     @State private var photo: Data?
+    @Query(sort: \GymPayment.date, order: .reverse) private var payments: [GymPayment]
+    @State private var prior = 0
+    // New package form
+    @State private var pkgSessions = 36
+    @State private var pkgAmount = ""
+    @State private var pkgDate = Date.now
+    @State private var pkgMethod = "UPI"
+    @State private var editPackage: GymPayment?
+
+    private var packages: [GymPayment] {
+        guard let trainer else { return [] }
+        return payments.filter { $0.kind == .personalTraining && $0.trainerID == trainer.uid }
+    }
 
     private let specialities = ["Strength & Conditioning", "Bodybuilding", "Weight Loss", "Powerlifting", "CrossFit / Functional", "Yoga",
                                 "Pilates", "Zumba / Dance", "Calisthenics", "Sports Performance", "Rehab & Mobility", "Nutrition Coach"]
@@ -457,6 +471,65 @@ struct TrainerEditor: View {
                     }
                     TextField("Notes", text: $notes, axis: .vertical)
                 }
+
+                Section {
+                    if trainer != nil {
+                        let paid = packages.reduce(0) { $0 + $1.sessionsIncluded }
+                        let logged = logs.filter { $0.isPT && $0.trainerID == trainer?.uid }.count
+                        let used = logged + prior
+                        if paid > 0 {
+                            HStack {
+                                packStat("\(paid)", "paid", .cyan); Spacer()
+                                packStat("\(used)", "used", .orange); Spacer()
+                                packStat("\(max(paid - used, 0))", "left", .green)
+                            }
+                            ProgressView(value: Double(min(used, paid)), total: Double(paid)).tint(used >= paid ? .orange : .green)
+                        }
+                        ForEach(packages) { p in
+                            Button { editPackage = p } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("\(p.sessionsIncluded) sessions").font(.subheadline.bold()).foregroundStyle(Color.primary)
+                                        Text("\(p.date.formatted(date: .abbreviated, time: .omitted)) · \(p.method)" + (p.sessionsIncluded > 0 && p.amount > 0 ? " · \(inr(p.amount / Double(p.sessionsIncluded)))/session" : ""))
+                                            .font(.caption2).foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                    if p.bill != nil { Image(systemName: "paperclip").font(.caption).foregroundStyle(.secondary) }
+                                    Text(inr(p.amount)).font(.subheadline.bold()).foregroundStyle(Color.primary)
+                                }
+                            }
+                        }
+                        .onDelete { idx in idx.map { packages[$0] }.forEach { context.delete($0) }; try? context.save() }
+                        Stepper("Sessions done before iLife: \(prior)", value: $prior, in: 0...500)
+                    }
+                    Stepper("Sessions paid for: \(pkgSessions)", value: $pkgSessions, in: 1...300)
+                    HStack {
+                        ForEach([12, 24, 36, 48, 60], id: \.self) { n in
+                            Button("\(n)") { pkgSessions = n }.font(.caption.bold()).buttonStyle(.bordered)
+                                .tint(pkgSessions == n ? Color.accentColor : Color.gray)
+                        }
+                    }
+                    HStack {
+                        Text("Amount paid")
+                        Spacer()
+                        Text("₹").foregroundStyle(.secondary)
+                        TextField("0", text: $pkgAmount).keyboardType(.numberPad).multilineTextAlignment(.trailing).frame(width: 110)
+                    }
+                    DatePicker("Paid on", selection: $pkgDate, in: ...Date.now, displayedComponents: .date)
+                    Picker("Method", selection: $pkgMethod) {
+                        ForEach(["UPI", "Cash", "Card", "Net Banking", "Cheque", "EMI"], id: \.self) { Text($0) }
+                    }
+                    if let trainer {
+                        Button("Add this package", systemImage: "plus.circle.fill") { addPackage(to: trainer) }
+                            .disabled((Double(pkgAmount) ?? 0) <= 0)
+                    }
+                } header: {
+                    Text(trainer == nil ? "Sessions paid for (optional)" : "Session packages")
+                } footer: {
+                    Text(trainer == nil ? "Paid for a block of sessions up front? Enter it here and it's saved with the trainer. Leave the amount empty to skip."
+                         : "Each workout you log as Personal training with this trainer uses one session. Tap a package to attach the receipt.")
+                }
+
                 if let trainer {
                     let sessions = logs.filter { $0.isPT && $0.trainerID == trainer.uid }
                     Section("Sessions with \(trainer.firstName) (\(sessions.count))") {
@@ -482,7 +555,11 @@ struct TrainerEditor: View {
                         if trainer == nil { context.insert(t) }
                         t.firstName = first; t.lastName = last; t.speciality = speciality; t.phone = phone
                         t.gymName = gym; t.feePerSession = Double(fee) ?? 0; t.notes = notes; t.photo = photo
+                        t.priorSessions = prior
+                        // A package typed in while creating the trainer (or left un-added) is saved with them.
+                        if (Double(pkgAmount) ?? 0) > 0 { addPackage(to: t) }
                         try? context.save()
+                        Haptics.success()
                         dismiss()
                     }
                     .disabled(first.isEmpty)
@@ -495,8 +572,34 @@ struct TrainerEditor: View {
                 guard let t = trainer else { return }
                 first = t.firstName; last = t.lastName; speciality = t.speciality; phone = t.phone; gym = t.gymName
                 fee = t.feePerSession > 0 ? String(Int(t.feePerSession)) : ""; notes = t.notes; photo = t.photo
+                prior = t.priorSessions
             }
+            .sheet(item: $editPackage) { PaymentEditor(payment: $0) }
         }
+    }
+}
+
+extension TrainerEditor {
+    func packStat(_ v: String, _ l: String, _ c: Color) -> some View {
+        VStack(spacing: 0) {
+            Text(v).font(.title2.bold()).foregroundStyle(c)
+            Text(l).font(.caption2).foregroundStyle(.secondary)
+        }
+    }
+
+    func addPackage(to t: Trainer) {
+        let p = GymPayment()
+        p.kind = .personalTraining
+        p.trainerID = t.uid
+        p.sessionsIncluded = pkgSessions
+        p.amount = Double(pkgAmount) ?? 0
+        p.date = pkgDate
+        p.method = pkgMethod
+        p.notes = "\(pkgSessions)-session package"
+        context.insert(p)
+        try? context.save()
+        pkgAmount = ""
+        Haptics.success()
     }
 }
 

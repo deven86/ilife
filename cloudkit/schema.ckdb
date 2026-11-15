@@ -457,6 +457,64 @@ DEFINE SCHEMA
         GRANT READ TO "_world"
     );
 
+    RECORD TYPE CD_Supplement (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        CD_entityName STRING QUERYABLE,
+        CD_company STRING,
+        CD_company_ckAsset ASSET,
+        CD_dose STRING,
+        CD_dose_ckAsset ASSET,
+        CD_isPaused INT64,
+        CD_name STRING,
+        CD_name_ckAsset ASSET,
+        CD_notes STRING,
+        CD_notes_ckAsset ASSET,
+        CD_photo BYTES,
+        CD_photo_ckAsset ASSET,
+        CD_purpose STRING,
+        CD_purpose_ckAsset ASSET,
+        CD_remind INT64,
+        CD_slots BYTES,
+        CD_slots_ckAsset ASSET,
+        CD_startDate TIMESTAMP,
+        CD_suggestedBy STRING,
+        CD_suggestedByName STRING,
+        CD_suggestedByName_ckAsset ASSET,
+        CD_suggestedBy_ckAsset ASSET,
+        CD_uid STRING,
+        CD_uid_ckAsset ASSET,
+        CD_weekdays BYTES,
+        CD_weekdays_ckAsset ASSET,
+        CD_weeks INT64,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE CD_SupplementDose (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        CD_entityName STRING QUERYABLE,
+        CD_day TIMESTAMP,
+        CD_slot STRING,
+        CD_slot_ckAsset ASSET,
+        CD_supplementUID STRING,
+        CD_supplementUID_ckAsset ASSET,
+        CD_takenAt TIMESTAMP,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
     RECORD TYPE CD_Trainer (
         "___createTime" TIMESTAMP,
         "___createdBy"  REFERENCE,
@@ -478,6 +536,7 @@ DEFINE SCHEMA
         CD_phone_ckAsset ASSET,
         CD_photo BYTES,
         CD_photo_ckAsset ASSET,
+        CD_priorSessions INT64,
         CD_speciality STRING,
         CD_speciality_ckAsset ASSET,
         CD_uid STRING,
