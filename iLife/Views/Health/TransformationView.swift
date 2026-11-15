@@ -322,6 +322,7 @@ struct PickedMovie: Transferable {
 
 /// Camera in video mode (front camera, medium quality, 30 s max — keeps iCloud storage small).
 struct VideoCameraPicker: UIViewControllerRepresentable {
+    var preferRear = false
     let onFinish: (URL?) -> Void
     func makeCoordinator() -> Coordinator { Coordinator(onFinish: onFinish) }
     func makeUIViewController(context: Context) -> UIImagePickerController {
@@ -331,7 +332,7 @@ struct VideoCameraPicker: UIViewControllerRepresentable {
         vc.cameraCaptureMode = .video
         vc.videoQuality = .typeMedium
         vc.videoMaximumDuration = 30
-        if UIImagePickerController.isCameraDeviceAvailable(.front) { vc.cameraDevice = .front }
+        if !preferRear && UIImagePickerController.isCameraDeviceAvailable(.front) { vc.cameraDevice = .front }
         vc.delegate = context.coordinator
         return vc
     }

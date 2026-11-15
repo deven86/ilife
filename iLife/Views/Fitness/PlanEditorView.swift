@@ -73,6 +73,8 @@ struct PlanEditorView: View {
                                     }
                                     .pickerStyle(.menu).labelsHidden().font(.caption)
                                 }
+                                Spacer(minLength: 0)
+                                if !item.name.trimmingCharacters(in: .whitespaces).isEmpty { ExerciseGuideButton(name: item.name) }
                             }
                             HStack {
                                 Stepper("\(item.sets) sets", value: $item.sets, in: 1...10)

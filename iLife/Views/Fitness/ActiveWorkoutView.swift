@@ -1,4 +1,5 @@
 import SwiftUI
+import AVKit
 import SwiftData
 import MusicKit
 
@@ -44,8 +45,10 @@ struct ActiveWorkoutView: View {
                                 if !session.currentEquipment.isEmpty {
                                     Label(session.currentEquipment, systemImage: Equipment.symbol(session.currentEquipment)).font(.caption).foregroundStyle(.secondary)
                                 }
+                                ExerciseGuideButton(name: session.currentExercise, labelled: true).font(.caption.bold())
                             }
                         }
+                        ExerciseGuideInline(name: session.currentExercise)
                         if session.exerciseIndex + 1 < session.exercises.count {
                             Text("Next: \(session.exercises[session.exerciseIndex + 1])").font(.caption).foregroundStyle(.secondary)
                         }
@@ -191,5 +194,43 @@ struct RestTimerCard: View {
             }
         }
         .glassCard(cornerRadius: 18, padding: 12)
+    }
+}
+
+/// Shows the saved explainer (GIF loops; video plays muted on loop) and your cues during a live workout.
+struct ExerciseGuideInline: View {
+    let name: String
+    @Query private var all: [ExerciseMedia]
+    @State private var player: AVQueuePlayer?
+    @State private var looper: AVPlayerLooper?
+
+    private var media: ExerciseMedia? {
+        let k = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return all.first { $0.key == k }
+    }
+
+    var body: some View {
+        if let m = media {
+            VStack(alignment: .leading, spacing: 6) {
+                if m.videoType == "gif", let d = m.video {
+                    AnimatedGIFView(data: d).frame(height: 180).frame(maxWidth: .infinity).clipShape(RoundedRectangle(cornerRadius: 12))
+                } else if m.video != nil, let player {
+                    VideoPlayer(player: player).frame(height: 180).clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+                if !m.cues.isEmpty { Label(m.cues, systemImage: "text.bubble").font(.caption).foregroundStyle(.secondary) }
+            }
+            .task(id: name) { setUp(m) }
+            .onDisappear { player?.pause() }
+        }
+    }
+
+    private func setUp(_ m: ExerciseMedia) {
+        player?.pause(); player = nil; looper = nil
+        guard let url = m.videoFileURL() else { return }
+        let q = AVQueuePlayer()
+        q.isMuted = true
+        looper = AVPlayerLooper(player: q, templateItem: AVPlayerItem(url: url))
+        player = q
+        q.play()
     }
 }

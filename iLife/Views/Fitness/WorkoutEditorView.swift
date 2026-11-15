@@ -56,6 +56,7 @@ struct ExercisePickerView: View {
                                             .font(.caption2).foregroundStyle(.secondary)
                                     }
                                     Spacer()
+                                    ExerciseGuideButton(name: ex.name)
                                     Image(systemName: count > 0 ? "checkmark.circle.fill" : "circle")
                                         .font(.title3).foregroundStyle(count > 0 ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.secondary))
                                 }
@@ -218,6 +219,7 @@ struct WorkoutEditorView: View {
                                 historyLine(block.exercise)
                             }
                             Spacer()
+                            ExerciseGuideButton(name: block.exercise)
                             Button(role: .destructive) { blocks.removeAll { $0.id == block.id } } label: { Image(systemName: "trash") }
                                 .buttonStyle(.borderless)
                         }
@@ -403,6 +405,8 @@ struct WorkoutDetailView: View {
                         HStack(spacing: 12) {
                             ItemThumbnail.exercise(ex, equipment: ExerciseLibrary.find(ex)?.equipment ?? "", size: 48, corner: 10)
                             Text(ex).font(.headline)
+                            Spacer()
+                            ExerciseGuideButton(name: ex)
                         }
                         ForEach(Array(sets.enumerated()), id: \.offset) { i, s in
                             HStack {
