@@ -220,7 +220,9 @@ struct SessionSetupSheet: View {
                     Section("Voice") {
                         Picker("Language", selection: $langRaw) { ForEach(MLang.allCases) { Text($0.title).tag($0.rawValue) } }
                             .pickerStyle(.segmented)
-                        if let v = Voices.chosen(lang) {
+                        if NaturalVoice.shared.isActive {
+                            HStack { Text("Voice"); Spacer(); Text("\(NaturalVoice.shared.voiceName(lang)) · Natural").foregroundStyle(.secondary) }
+                        } else if let v = Voices.chosen(lang) {
                             HStack { Text("Voice"); Spacer(); Text("\(v.name) · \(Voices.qualityName(v))").foregroundStyle(.secondary) }
                             if v.quality == .default {
                                 NavigationLink { MindSettingsView() } label: { Label("Get a more natural voice", systemImage: "waveform.badge.plus").font(.caption) }
@@ -620,9 +622,21 @@ struct MindSettingsView: View {
     @AppStorage("medReminderMinutes") private var reminderMinutes = 21 * 60 + 45
     @State private var refresh = 0
     @State private var preview = AVSpeechSynthesizer()
+    @ObservedObject private var nv = NaturalVoice.shared
 
     var body: some View {
         Form {
+            Section {
+                NavigationLink { NaturalVoiceSettings() } label: {
+                    HStack {
+                        Label("Natural voices (Google)", systemImage: "waveform.circle.fill")
+                        Spacer()
+                        Text(nv.isActive ? "On" : "Off").foregroundStyle(.secondary)
+                    }
+                }
+            } footer: {
+                Text(nv.isActive ? "Google voices are in use. The iPhone voices below are the offline backup." : "Much more human-sounding guidance, in English and Hindi.")
+            }
             ForEach(MLang.allCases) { lang in
                 Section(lang == .english ? "English voice" : "Hindi voice") {
                     let voices = Voices.available(lang)
@@ -684,5 +698,110 @@ struct MindSettingsView: View {
             try? await center.add(UNNotificationRequest(identifier: "ilife.meditation.daily", content: c,
                                                         trigger: UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)))
         }
+    }
+}
+
+// MARK: - Google natural voices
+
+struct NaturalVoiceSettings: View {
+    @ObservedObject private var nv = NaturalVoice.shared
+    @State private var key = ""
+    @State private var testing = false
+    @State private var testResult: String?
+    @State private var clip = ClipPlayer()
+    @State private var langs: Set<MLang> = [.english, .hindi]
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle("Use natural voices", isOn: $nv.enabled).disabled(!nv.hasKey)
+                Text(nv.isActive ? "Meditations use Google's Chirp 3 HD voices. If there's no internet and a line isn't saved yet, the iPhone voice reads it instead."
+                                 : "Paste your Google Cloud API key below to turn this on.")
+                    .font(.caption).foregroundStyle(.secondary)
+            } header: { Text("Natural voices (Google)") }
+
+            Section {
+                SecureField(nv.hasKey ? "Key saved — paste a new one to replace" : "Paste Google Cloud API key (AIza…)", text: $key)
+                    .textInputAutocapitalization(.never).autocorrectionDisabled()
+                Button("Save key") { nv.saveKey(key); key = ""; testResult = nil; Haptics.success() }
+                    .disabled(key.trimmingCharacters(in: .whitespaces).isEmpty)
+                if nv.hasKey { Button("Remove key", role: .destructive) { nv.saveKey(""); testResult = nil } }
+                Button {
+                    testing = true; testResult = nil
+                    Task {
+                        do {
+                            let url = try await nv.audio(for: "Take a slow breath in, and let it go.", .english)
+                            testResult = "✓ Working"
+                            await clip.play(url, volume: 1)
+                        } catch { testResult = "✗ " + error.localizedDescription }
+                        testing = false
+                    }
+                } label: { HStack { Text("Test & hear a sample"); if testing { Spacer(); ProgressView() } } }
+                .disabled(!nv.hasKey || testing)
+                if let testResult { Text(testResult).font(.caption).foregroundStyle(testResult.hasPrefix("✓") ? .green : .orange) }
+            } header: { Text("API key") } footer: { Text("Stored only in this iPhone's Keychain.") }
+
+            if nv.hasKey {
+                ForEach(MLang.allCases) { lang in
+                    Section(lang == .english ? "English (India) voice" : "Hindi voice") {
+                        Picker("Voice", selection: lang == .english ? $nv.voiceEN : $nv.voiceHI) {
+                            Section("Female") { ForEach(NaturalVoice.female, id: \.self) { Text($0).tag($0) } }
+                            Section("Male") { ForEach(NaturalVoice.male, id: \.self) { Text($0).tag($0) } }
+                        }
+                        Button("Hear \(nv.voiceName(lang))", systemImage: "play.circle.fill") {
+                            Task {
+                                let sample = lang == .english ? "Find a comfortable position, and gently close your eyes." : "आराम से बैठ जाइए, और धीरे से आँखें बंद कर लीजिए।"
+                                do { await clip.play(try await nv.audio(for: sample, lang), volume: 1) } catch { testResult = "✗ " + error.localizedDescription }
+                            }
+                        }
+                    }
+                }
+                Section {
+                    HStack { Image(systemName: "tortoise.fill"); Slider(value: $nv.rate, in: 0.75...1.1, step: 0.01); Image(systemName: "hare.fill") }
+                    Text(String(format: "Speed %.2f×", nv.rate)).font(.caption).foregroundStyle(.secondary)
+                } header: { Text("Speaking speed") } footer: {
+                    Text("Changing the voice or speed means lines are generated again the next time they're played.")
+                }
+
+                Section {
+                    Toggle("English", isOn: Binding(get: { langs.contains(.english) }, set: { if $0 { langs.insert(.english) } else { langs.remove(.english) } }))
+                    Toggle("Hindi", isOn: Binding(get: { langs.contains(.hindi) }, set: { if $0 { langs.insert(.hindi) } else { langs.remove(.hindi) } }))
+                    let pending = nv.pendingCharacters(Array(langs))
+                    Text(pending == 0 ? "Everything is ready for these languages." : "\(pending.formatted()) characters to generate (Google's free allowance is 1,000,000 a month).")
+                        .font(.caption).foregroundStyle(.secondary)
+                    if nv.preparing {
+                        ProgressView(value: nv.progress)
+                        Text(nv.prepareNote).font(.caption)
+                    } else {
+                        Button("Prepare all sessions now", systemImage: "arrow.down.circle.fill") { Task { await nv.prepareAll(Array(langs)) } }
+                            .disabled(langs.isEmpty || pending == 0)
+                        if !nv.prepareNote.isEmpty { Text(nv.prepareNote).font(.caption).foregroundStyle(.secondary) }
+                    }
+                    if let e = nv.lastError { Text(e).font(.caption).foregroundStyle(.orange) }
+                } header: { Text("Download for offline") } footer: {
+                    Text("Optional. Without this, each line is fetched the first time a session plays it, then saved. Keep iLife open while preparing.")
+                }
+
+                Section("Usage") {
+                    HStack { Text("Characters this month"); Spacer(); Text("\(nv.monthCharacters.formatted()) / 1,000,000 free").foregroundStyle(.secondary) }
+                    HStack { Text("Saved audio on this iPhone"); Spacer(); Text(String(format: "%.1f MB", nv.cacheSizeMB)).foregroundStyle(.secondary) }
+                    Button("Delete saved audio", role: .destructive) { nv.clearCache() }
+                }
+            }
+
+            Section("How to get a key (10 minutes, once)") {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("1. console.cloud.google.com → sign in → create a project (e.g. \"iLife\").")
+                    Text("2. Billing → link a billing account (card needed; usage stays inside the free tier).")
+                    Text("3. APIs & Services → Library → \"Cloud Text-to-Speech API\" → Enable.")
+                    Text("4. APIs & Services → Credentials → Create credentials → API key → copy it.")
+                    Text("5. Edit the key → API restrictions → only Cloud Text-to-Speech API. Application restrictions → iOS apps → com.jondhale.ilife.")
+                    Text("6. Billing → Budgets & alerts → set a ₹100 budget alert for peace of mind.")
+                    Text("7. Paste the key above and tap Test.")
+                }
+                .font(.caption)
+            }
+        }
+        .navigationTitle("Natural Voices")
     }
 }

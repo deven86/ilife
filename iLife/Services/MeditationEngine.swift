@@ -314,6 +314,8 @@ final class MeditationPlayer: ObservableObject {
     private let sound = SoundEngine()
     private let synth = AVSpeechSynthesizer()
     private let waiter = SpeechWaiter()
+    private let clips = ClipPlayer()
+    private var natural: Bool { NaturalVoice.shared.isActive }
     private var runTask: Task<Void, Never>?
     private var clockTask: Task<Void, Never>?
     private var usedAppleMusic = false
@@ -343,6 +345,7 @@ final class MeditationPlayer: ObservableObject {
         setUpRemote()
         UIApplication.shared.isIdleTimerDisabled = true
         let steps = s.build(minutes)
+        if natural { prefetch(steps) }
         clockTask = Task { [weak self] in
             while let self, !Task.isCancelled, self.state == .running || self.state == .paused {
                 try? await Task.sleep(for: .milliseconds(250))
@@ -357,11 +360,13 @@ final class MeditationPlayer: ObservableObject {
         if state == .running {
             state = .paused
             synth.pauseSpeaking(at: .word)
+            clips.pause()
             sound.pause()
             if usedAppleMusic { MusicController.shared.pauseIfPlaying() }
         } else if state == .paused {
             state = .running
             synth.continueSpeaking()
+            clips.resume()
             sound.resume()
             if usedAppleMusic { Task { await MusicController.shared.togglePlayPause() } }
         }
@@ -373,6 +378,7 @@ final class MeditationPlayer: ObservableObject {
         runTask?.cancel(); clockTask?.cancel()
         runTask = nil; clockTask = nil
         if synth.isSpeaking { synth.stopSpeaking(at: .immediate) }
+        clips.stop()
         sound.stop()
         if usedAppleMusic { MusicController.shared.stop(); usedAppleMusic = false }
         UIApplication.shared.isIdleTimerDisabled = false
@@ -470,6 +476,7 @@ final class MeditationPlayer: ObservableObject {
         state = .finished
         clockTask?.cancel()
         if synth.isSpeaking { synth.stopSpeaking(at: .immediate) }
+        clips.stop()
         sound.stop()
         if usedAppleMusic { MusicController.shared.stop(); usedAppleMusic = false }
         UIApplication.shared.isIdleTimerDisabled = false
@@ -477,8 +484,32 @@ final class MeditationPlayer: ObservableObject {
         Haptics.success()
     }
 
+    /// Fetches any lines not yet cached in the background, so natural-voice playback has no gaps.
+    private func prefetch(_ steps: [MStep]) {
+        var texts: [String] = []
+        for step in steps {
+            switch step {
+            case .say(let line): texts.append(line.text(lang))
+            case .breathe(let p, _), .breatheFill(let p, _): texts += p.phases.map { $0.cue.text(lang) }
+            default: break
+            }
+        }
+        let l = lang
+        Task {
+            for text in texts where !NaturalVoice.shared.isCached(text, l) {
+                if Task.isCancelled || self.state == .idle { return }
+                _ = try? await NaturalVoice.shared.audio(for: text, l)
+            }
+        }
+    }
+
     private func say(_ text: String) async {
         caption = text
+        if natural, let url = try? await NaturalVoice.shared.audio(for: text, lang) {
+            await clips.play(url, volume: voiceVolume)
+            await waitSeconds(0.4)
+            return
+        }
         let u = AVSpeechUtterance(string: text)
         u.voice = Voices.chosen(lang)
         u.rate = voiceRate
@@ -499,7 +530,10 @@ final class MeditationPlayer: ObservableObject {
                 breathLabel = phase.cue.text(lang)
                 withAnimation(.easeInOut(duration: phase.seconds)) { breath = phase.kind }
                 UIImpactFeedbackGenerator(style: phase.kind == .inhale ? .medium : .light).impactOccurred()
-                if speak {
+                if speak && natural && NaturalVoice.shared.isCached(phase.cue.text(lang), lang),
+                   let url = try? await NaturalVoice.shared.audio(for: phase.cue.text(lang), lang) {
+                    clips.playDetached(url, volume: voiceVolume * 0.9)
+                } else if speak {
                     let u = AVSpeechUtterance(string: phase.cue.text(lang))
                     u.voice = Voices.chosen(lang); u.rate = voiceRate; u.volume = voiceVolume * 0.9
                     synth.speak(u)
