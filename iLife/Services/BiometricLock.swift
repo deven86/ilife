@@ -20,10 +20,25 @@ final class BiometricLock: ObservableObject {
         }
     }
 
-    func lock() { if lockEnabled { isUnlocked = false } }
+    func lock() { if lockEnabled { isUnlocked = false; autoPrompted = false } }
+
+    private var inProgress = false
+    /// Face ID is offered automatically once each time the app opens — not again after you cancel.
+    private var autoPrompted = false
+
+    func autoUnlock() async {
+        guard !autoPrompted, UIApplication.shared.applicationState == .active else { return }
+        autoPrompted = true
+        await unlock()
+    }
 
     func unlock() async {
         guard lockEnabled else { isUnlocked = true; return }
+        guard !inProgress, !isUnlocked else { return }
+        // Face ID can only be shown while the app is in front; at launch it may not be yet.
+        guard UIApplication.shared.applicationState == .active else { return }
+        inProgress = true
+        defer { inProgress = false }
         let ctx = LAContext()
         ctx.localizedCancelTitle = "Cancel"
         var err: NSError?
@@ -35,14 +50,27 @@ final class BiometricLock: ObservableObject {
         do {
             isUnlocked = try await ctx.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Unlock your iLife health data")
             errorText = nil
+        } catch let e as LAError {
+            switch e.code {
+            case .systemCancel, .appCancel, .notInteractive:
+                errorText = nil                      // interrupted by iOS — try again when the app is active
+                autoPrompted = false
+            case .userCancel:
+                errorText = nil                      // you cancelled — the button stays on screen
+            case .biometryLockout:
+                errorText = "\(biometryName) is locked after too many tries. Use your passcode."
+            default:
+                errorText = "\(biometryName) didn't recognise you. Tap to try again."
+            }
         } catch {
-            errorText = "Authentication failed. Tap to try again."
+            errorText = "Couldn't unlock. Tap to try again."
         }
     }
 }
 
 struct LockScreenView: View {
     @EnvironmentObject var lock: BiometricLock
+    @Environment(\.scenePhase) private var phase
     var body: some View {
         ZStack {
             WallpaperView()
@@ -63,6 +91,13 @@ struct LockScreenView: View {
                 Spacer().frame(height: 60)
             }
         }
-        .task { await lock.unlock() }
+        .task {
+            // Give iOS a moment to finish showing the app, then ask for Face ID.
+            try? await Task.sleep(for: .milliseconds(350))
+            await lock.autoUnlock()
+        }
+        .onChange(of: phase) { _, p in
+            if p == .active { Task { try? await Task.sleep(for: .milliseconds(250)); await lock.autoUnlock() } }
+        }
     }
 }

@@ -616,3 +616,16 @@ enum DoseSlot: String, CaseIterable, Identifiable {
     @Attribute(.externalStorage) var equipmentPhoto: Data?
     init(key: String) { self.key = key }
 }
+
+
+// MARK: - Personal-training sessions are counted per day
+
+extension Array where Element == WorkoutLog {
+    /// Distinct days with personal training (optionally with one trainer). One day = one session,
+    /// however many workouts or exercises were logged that day.
+    func ptDays(trainerID: String? = nil) -> [Date] {
+        let cal = Calendar.current
+        let days = Set(self.filter { $0.isPT && (trainerID == nil || $0.trainerID == trainerID) }.map { cal.startOfDay(for: $0.start) })
+        return days.sorted(by: >)
+    }
+}

@@ -87,7 +87,7 @@ struct HomeView: View {
         i.foodsLoggedToday = todayFoods.count
         i.workoutDays = logs.map(\.start)
         i.ptPaid = payments.filter { $0.kind == .personalTraining }.reduce(0) { $0 + $1.sessionsIncluded }
-        i.ptDone = logs.filter(\.isPT).count + trainers.reduce(0) { $0 + $1.priorSessions }
+        i.ptDone = logs.ptDays().count + trainers.reduce(0) { $0 + $1.priorSessions }
         if let m = memberships.max(by: { $0.endDate < $1.endDate }) { i.membershipDaysLeft = m.daysLeft; i.gymName = m.gymName }
         i.lastInBody = scans.first?.date
         i.weights = weightSeries

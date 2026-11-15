@@ -184,7 +184,7 @@ struct AchievementsView: View {
         let foodDays = Set(foods.map { Calendar.current.startOfDay(for: $0.date) }).count
         return Achievements.all(workouts: logs.count, streak: InsightsEngine.workoutStreak(dates), bestStreak: Achievements.bestStreak(dates),
                                 photos: photos.count, scans: scans.count, foodDays: foodDays, bestSteps: max(bestSteps, health.steps),
-                                totalMinutes: logs.reduce(0) { $0 + $1.durationMinutes }, ptSessions: logs.filter(\.isPT).count,
+                                totalMinutes: logs.reduce(0) { $0 + $1.durationMinutes }, ptSessions: logs.ptDays().count,
                                 prs: UserDefaults.standard.integer(forKey: "prCount"))
     }
 

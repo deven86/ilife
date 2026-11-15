@@ -103,7 +103,7 @@ struct GymSection: View {
     }
 
     // Trainers
-    private func sessionsDone(_ t: Trainer) -> Int { logs.filter { $0.isPT && $0.trainerID == t.uid }.count + t.priorSessions }
+    private func sessionsDone(_ t: Trainer) -> Int { logs.ptDays(trainerID: t.uid).count + t.priorSessions }
     private func sessionsPaid(_ t: Trainer) -> Int { payments.filter { $0.kind == .personalTraining && $0.trainerID == t.uid }.reduce(0) { $0 + $1.sessionsIncluded } }
 
     private var trainersCard: some View {
@@ -141,18 +141,19 @@ struct GymSection: View {
 
     // Sessions
     private var sessionsCard: some View {
-        let pt = monthLogs.filter(\.isPT).count
-        let selfCount = monthLogs.count - pt
+        let pt = monthLogs.ptDays().count
+        let trainingDays = Set(monthLogs.map { Calendar.current.startOfDay(for: $0.start) })
+        let selfCount = trainingDays.subtracting(monthLogs.ptDays()).count
         return VStack(alignment: .leading, spacing: 10) {
             SectionTitle(title: "Sessions this month", trailing: Date.now.formatted(.dateTime.month(.wide)))
             HStack {
-                stat("\(pt)", "Personal training", .orange)
+                stat("\(pt)", "PT days", .orange)
                 Spacer()
-                stat("\(selfCount)", "Self training", .cyan)
+                stat("\(selfCount)", "Self-training days", .cyan)
                 Spacer()
-                stat("\(monthLogs.count)", "Total", .green)
+                stat("\(trainingDays.count)", "Days trained", .green)
             }
-            Text("Mark a workout as personal or self training when you log or edit it.").font(.caption2).foregroundStyle(.secondary)
+            Text("Counted in days. Mark a workout as personal or self training when you log or edit it.").font(.caption2).foregroundStyle(.secondary)
         }
         .glassCard()
     }
@@ -475,7 +476,7 @@ struct TrainerEditor: View {
                 Section {
                     if trainer != nil {
                         let paid = packages.reduce(0) { $0 + $1.sessionsIncluded }
-                        let logged = logs.filter { $0.isPT && $0.trainerID == trainer?.uid }.count
+                        let logged = logs.ptDays(trainerID: trainer?.uid ?? "-").count
                         let used = logged + prior
                         if paid > 0 {
                             HStack {
@@ -531,16 +532,19 @@ struct TrainerEditor: View {
                 }
 
                 if let trainer {
-                    let sessions = logs.filter { $0.isPT && $0.trainerID == trainer.uid }
-                    Section("Sessions with \(trainer.firstName) (\(sessions.count))") {
-                        if sessions.isEmpty { Text("Log a workout as Personal training and choose this trainer.").font(.caption).foregroundStyle(.secondary) }
-                        ForEach(sessions.prefix(20)) { s in
-                            HStack {
-                                Text(s.start.formatted(date: .abbreviated, time: .shortened))
+                    let days = logs.ptDays(trainerID: trainer.uid)
+                    Section("Sessions with \(trainer.firstName) (\(days.count) day\(days.count == 1 ? "" : "s"))") {
+                        if days.isEmpty { Text("Log a workout as Personal training and choose this trainer.").font(.caption).foregroundStyle(.secondary) }
+                        ForEach(days.prefix(30), id: \.self) { day in
+                            let dayLogs = logs.filter { $0.isPT && $0.trainerID == trainer.uid && Calendar.current.isDate($0.start, inSameDayAs: day) }
+                            HStack(alignment: .top) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(day.formatted(date: .abbreviated, time: .omitted)).font(.subheadline)
+                                    Text(dayLogs.map(\.name).joined(separator: " · ")).font(.caption2).foregroundStyle(.secondary).lineLimit(2)
+                                }
                                 Spacer()
-                                Text(s.name).foregroundStyle(.secondary).lineLimit(1)
+                                Text("\(Int(dayLogs.reduce(0) { $0 + $1.durationMinutes })) min").font(.caption).foregroundStyle(.secondary)
                             }
-                            .font(.caption)
                         }
                     }
                     Section { Button("Delete trainer", role: .destructive) { context.delete(trainer); dismiss() } }
