@@ -246,6 +246,8 @@ struct InBodyListView: View {
 
 struct InBodyDetailView: View {
     let scan: InBodyScan
+    @Query(sort: \InBodyScan.date, order: .reverse) private var allScans: [InBodyScan]
+    private var previous: InBodyScan? { allScans.first { $0.date < scan.date } }
     var body: some View {
         List {
             if let data = scan.image, let img = UIImage(data: data) {
@@ -272,6 +274,7 @@ struct InBodyDetailView: View {
             }
         }
         .navigationTitle(scan.date.formatted(date: .abbreviated, time: .omitted))
+        .toolbar { ShareMenuButton(name: "InBody \(scan.date.formatted(date: .numeric, time: .omitted))") { InBodyShareCard(scan: scan, previous: previous) } }
     }
     private func row(_ t: String, _ v: Double, _ u: String) -> some View {
         HStack { Text(t); Spacer(); Text(v > 0 ? "\(v.clean) \(u)" : "–").foregroundStyle(.secondary) }

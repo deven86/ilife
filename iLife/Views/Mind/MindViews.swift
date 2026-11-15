@@ -567,6 +567,12 @@ struct MindHistoryView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \MeditationLog.date, order: .reverse) private var logs: [MeditationLog]
 
+    private var csvFiles: [URL] {
+        let rows: [[Any?]] = logs.map { [$0.date, $0.title, $0.category, $0.minutes, $0.language, $0.soundscape, $0.moodBefore, $0.moodAfter, $0.completed] }
+        let csv = CSV.table(["time", "session", "category", "minutes", "language", "sound", "mood_before", "mood_after", "completed"], rows)
+        return [Exporter.file(csv, name: "iLife meditation.csv")].compactMap { $0 }
+    }
+
     private var byDay: [(Date, Double)] {
         let cal = Calendar.current
         return (0..<14).reversed().map { off in
@@ -580,6 +586,12 @@ struct MindHistoryView: View {
             VStack(alignment: .leading, spacing: 14) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Last 14 days").font(.headline)
+                    HStack {
+                        Spacer()
+                        ShareMenuButton(name: "Meditation history", extraFiles: { csvFiles }) {
+                            TrendShareCard(title: "Mindful minutes", unit: "min", data: byDay.map { DayValue(date: $0.0, value: $0.1) }, color: .mint, goal: 10)
+                        }
+                    }
                     WeekChart(title: "Mindful minutes", values: byDay.map(\.1), end: Calendar.current.startOfDay(for: .now), color: .mint, goal: 10)
                     let rated = logs.filter { $0.moodBefore > 0 && $0.moodAfter > 0 }
                     if !rated.isEmpty {
@@ -603,6 +615,10 @@ struct MindHistoryView: View {
                         Spacer()
                         if l.moodBefore > 0 && l.moodAfter > 0 { Text("\(["😣","😕","😐","🙂","😌"][l.moodBefore-1])→\(["😣","😕","😐","🙂","😌"][l.moodAfter-1])") }
                         Text("\(Int(l.minutes.rounded())) min").font(.subheadline.bold())
+                        ShareMenuButton(name: l.title, text: { "\(l.title) — \(Int(l.minutes.rounded())) mindful minutes on \(l.date.formatted(date: .abbreviated, time: .shortened)) with iLife" }) {
+                            MeditationShareCard(log: l, recent: byDay.map { DayValue(date: $0.0, value: $0.1) })
+                        }
+                        .font(.caption)
                     }
                     .glassCard(cornerRadius: 16, padding: 12)
                     .contextMenu { Button("Delete", systemImage: "trash", role: .destructive) { context.delete(l); try? context.save() } }

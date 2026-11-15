@@ -114,6 +114,10 @@ struct TrendCard: View {
             HStack(alignment: .firstTextBaseline) {
                 Text(title).font(.headline)
                 Spacer()
+                if !data.isEmpty {
+                    ShareMenuButton(name: title) { TrendShareCard(title: title, unit: unit, data: data, color: color, goal: goal, line: line) }
+                        .font(.caption)
+                }
                 if let change {
                     let good = lowerIsBetter ? change <= 0 : change >= 0
                     Label(String(format: "%.0f%%", abs(change)), systemImage: change >= 0 ? "arrow.up.right" : "arrow.down.right")

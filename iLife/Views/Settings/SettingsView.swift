@@ -62,6 +62,7 @@ struct SettingsView: View {
                 NavigationLink { AIHistoryView() } label: { Label("Plans & reviews history", systemImage: "clock.arrow.circlepath") }
                 NavigationLink { CoachView() } label: { Label("Coach", systemImage: "bubble.left.and.text.bubble.right.fill") }
                 NavigationLink { TrendsView() } label: { Label("Trends", systemImage: "chart.xyaxis.line") }
+                NavigationLink { ExportCenterView() } label: { Label("Reports & Export", systemImage: "square.and.arrow.up.on.square.fill") }
                 NavigationLink { AchievementsView() } label: { Label("Achievements", systemImage: "trophy.fill") }
             }
 

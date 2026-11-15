@@ -397,6 +397,7 @@ struct BriefView: View {
         .iLifeScreen()
         .navigationTitle("Today's Plan")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar { ShareMenuButton(name: "Plan \(day.formatted(date: .numeric, time: .omitted))") { BriefShareCard(brief: brief, day: day) } }
     }
 }
 
@@ -480,6 +481,7 @@ struct ReviewView: View {
         .iLifeScreen()
         .navigationTitle("Day Review")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar { ShareMenuButton(name: "Day review \(day.formatted(date: .numeric, time: .omitted))") { ReviewShareCard(review: review, stats: stats, day: day) } }
     }
 
     @ViewBuilder

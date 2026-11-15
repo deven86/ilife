@@ -42,6 +42,11 @@ struct NutritionView: View {
         }
         .iLifeScreen()
         .navigationTitle("Nutrition & Diet")
+        .toolbar {
+            ShareMenuButton(name: "Nutrition \(day.formatted(date: .numeric, time: .omitted))", text: { nutritionText }) {
+                NutritionDayShareCard(day: day, foods: dayFoods.sorted { $0.date < $1.date }, kcalGoal: profile.calorieIntakeGoal, proteinGoal: profile.proteinGoal, waterL: dayWaterL)
+            }
+        }
         .sheet(item: $addMeal) { AddFoodSheet(meal: $0, date: day) }
         .sheet(item: $editing) { EditFoodSheet(entry: $0) }
         .overlay(alignment: .bottomTrailing) {
@@ -109,6 +114,15 @@ struct NutritionView: View {
             }
         }
         .glassCard()
+    }
+
+    private var nutritionText: String {
+        let f = dayFoods.sorted { $0.date < $1.date }
+        var s = "Nutrition — \(day.formatted(date: .complete, time: .omitted))\n"
+        s += "\(Int(f.reduce(0) { $0 + $1.calories })) kcal · protein \(Int(f.reduce(0) { $0 + $1.protein })) g · carbs \(Int(f.reduce(0) { $0 + $1.carbs })) g · fat \(Int(f.reduce(0) { $0 + $1.fat })) g\n"
+        s += String(format: "Water %.1f L\n", dayWaterL)
+        for e in f { s += "• \(e.date.formatted(date: .omitted, time: .shortened)) \(e.meal.title): \(e.name) \(e.quantity) — \(Int(e.calories)) kcal, P\(Int(e.protein))\n" }
+        return s
     }
 
     /// Core meals always show; extra types (Early Morning, Drinks, Pre/Post-Workout, Other) show once used.
@@ -382,6 +396,13 @@ struct EditFoodSheet: View {
                 Section { Button("Delete entry", role: .destructive) { context.delete(entry); dismiss() } }
             }
             .navigationTitle("Edit Food")
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    ShareMenuButton(name: entry.name, text: { "\(entry.name) (\(entry.quantity)) — \(Int(entry.calories)) kcal, protein \(Int(entry.protein)) g, carbs \(Int(entry.carbs)) g, fat \(Int(entry.fat)) g" }) {
+                        FoodEntryShareCard(entry: entry)
+                    }
+                }
+            }
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { try? context.save(); dismiss() } } }
         }
     }

@@ -440,8 +440,21 @@ struct WorkoutDetailView: View {
         }
         .iLifeScreen()
         .navigationTitle(log.name)
-        .toolbar { Button("Edit") { editing = true } }
+        .toolbar {
+            ShareMenuButton(name: "\(log.name) \(log.start.formatted(date: .numeric, time: .omitted))", text: { workoutText }) {
+                WorkoutShareCard(log: log, trainerName: trainer?.fullName)
+            }
+            Button("Edit") { editing = true }
+        }
         .sheet(isPresented: $editing) { WorkoutEditorView(log: log) }
+    }
+
+    private var workoutText: String {
+        var t = "\(log.name) — \(log.start.formatted(date: .abbreviated, time: .shortened))\n\(Int(log.durationMinutes)) min · \(Int(log.calories)) kcal"
+        if log.isPT { t += " · personal training" + (trainer.map { " with \($0.fullName)" } ?? "") }
+        for ex in log.exerciseNames { t += "\n• \(ex): " + log.orderedSets.filter { $0.exercise == ex }.map(setSummary).joined(separator: ", ") }
+        if !log.notes.isEmpty { t += "\n\(log.notes)" }
+        return t
     }
 
     private func metric(_ v: String, _ l: String) -> some View {

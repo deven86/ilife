@@ -24,6 +24,7 @@ struct HomeView: View {
     @State private var action: QuickAction?
     @State private var showTrends = false
     @State private var showAchievements = false
+    @State private var showExport = false
 
     // MARK: Derived values
 
@@ -133,6 +134,7 @@ struct HomeView: View {
         .sheet(item: $action) { sheet(for: $0) }
         .navigationDestination(isPresented: $showTrends) { TrendsView() }
         .navigationDestination(isPresented: $showAchievements) { AchievementsView() }
+        .navigationDestination(isPresented: $showExport) { ExportCenterView() }
     }
 
     private func checkGoals() {
@@ -387,9 +389,12 @@ struct HomeView: View {
     }
 
     private var exploreRow: some View {
-        HStack(spacing: 12) {
-            exploreButton("Trends", "chart.xyaxis.line", .indigo) { showTrends = true }
-            exploreButton("Achievements", "trophy.fill", .yellow) { showAchievements = true }
+        VStack(spacing: 12) {
+            HStack(spacing: 12) {
+                exploreButton("Trends", "chart.xyaxis.line", .indigo) { showTrends = true }
+                exploreButton("Achievements", "trophy.fill", .yellow) { showAchievements = true }
+            }
+            exploreButton("Reports & Export", "square.and.arrow.up.on.square.fill", .mint) { showExport = true }
         }
     }
 
