@@ -97,7 +97,7 @@ struct PlanEditorView: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) { Button("Save", action: save).disabled(name.isEmpty) }
             }
-            .onAppear(perform: load)
+            .onFirstAppear(perform: load)
             .sheet(isPresented: $showPicker) {
                 ExercisePickerView { picked in
                     items += picked.map { .init(name: $0.name, sets: $0.isCardio ? 1 : 3, reps: $0.isCardio ? "20 min" : "12", rest: 60, equipment: $0.equipment) }

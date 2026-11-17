@@ -60,11 +60,11 @@ struct ExerciseInfoView: View {
                     if busy { HStack { ProgressView(); Text("Saving…").font(.caption) } }
                     if let problem { Text(problem).font(.caption).foregroundStyle(.orange) }
                     if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                        Button("Record a video (up to 30 s)", systemImage: "video.fill") { showVideoCamera = true }
+                        Button("Record a video (up to 30 s)", systemImage: "video.fill") { Presenter.videoCamera(front: false) { store(fileAt: $0) } }
                     }
                     PhotosPicker(selection: $videoItem, matching: .videos) { Label("Choose a video from Photos", systemImage: "film") }
                     PhotosPicker(selection: $gifItem, matching: .images) { Label("Choose a GIF from Photos", systemImage: "photo.stack") }
-                    Button("Import video or GIF from Files", systemImage: "folder") { showFiles = true }
+                    Button("Import video or GIF from Files", systemImage: "folder") { Presenter.file(types: [.movie, .gif]) { store(fileAt: $0) } }
                 } header: {
                     Text("Explainer video or GIF")
                 } footer: {
@@ -98,14 +98,7 @@ struct ExerciseInfoView: View {
             .navigationTitle("Exercise Guide")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { saveText(); dismiss() } } }
-            .onAppear { link = media?.link ?? ""; cues = media?.cues ?? "" }
-            .fullScreenCover(isPresented: $showVideoCamera) {
-                VideoCameraPicker(preferRear: true) { url in
-                    showVideoCamera = false
-                    if let url { store(fileAt: url) }
-                }
-                .ignoresSafeArea()
-            }
+            .onFirstAppear { link = media?.link ?? ""; cues = media?.cues ?? "" }
             .onChange(of: videoItem) { _, item in
                 guard let item else { return }
                 busy = true
@@ -125,8 +118,6 @@ struct ExerciseInfoView: View {
                     gifItem = nil
                 }
             }
-            .fileImporter(isPresented: $showFiles, allowedContentTypes: [.movie, .gif]) { res in
-                guard case .success(let url) = res else { return }
                 let ok = url.startAccessingSecurityScopedResource()
                 defer { if ok { url.stopAccessingSecurityScopedResource() } }
                 store(fileAt: url)

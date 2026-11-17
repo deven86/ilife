@@ -44,10 +44,16 @@ struct InBodyImportView: View {
                             .font(.callout).foregroundStyle(.secondary)
                     }
                     Section("Source") {
-                        Button("Scan with camera", systemImage: "doc.viewfinder") { showCamera = true }
+                        Button("Scan with camera", systemImage: "doc.viewfinder") { Presenter.scan { pages in if !pages.isEmpty { Task { await read(pages) } } } }
                             .disabled(!VNDocumentCameraViewController.isSupported)
                         PhotosPicker(selection: $photoItem, matching: .images) { Label("Choose from Photos", systemImage: "photo") }
-                        Button("Upload PDF or image from Files", systemImage: "folder") { showFiles = true }
+                        Button("Upload PDF or image from Files", systemImage: "folder") {
+                            Presenter.file(types: [.pdf, .image]) { url in
+                                guard let data = try? Data(contentsOf: url) else { return }
+                                let pages = url.pathExtension.lowercased() == "pdf" ? InBodyScanner.images(fromPDF: data) : [UIImage(data: data)].compactMap { $0 }
+                                Task { await read(pages) }
+                            }
+                        }
                     }
                 }
                 if isReading {
@@ -119,12 +125,6 @@ struct InBodyImportView: View {
                     ToolbarItem(placement: .confirmationAction) { Button("Save", action: save).disabled(Double(weight) == nil) }
                 }
             }
-            .fullScreenCover(isPresented: $showCamera) {
-                DocumentScanner { pages in showCamera = false; Task { await read(pages) } }
-                    .ignoresSafeArea()
-            }
-            .fileImporter(isPresented: $showFiles, allowedContentTypes: [.pdf, .image]) { res in
-                guard case .success(let url) = res else { return }
                 let access = url.startAccessingSecurityScopedResource()
                 defer { if access { url.stopAccessingSecurityScopedResource() } }
                 guard let data = try? Data(contentsOf: url) else { return }

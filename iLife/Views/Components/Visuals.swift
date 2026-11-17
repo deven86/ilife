@@ -112,34 +112,15 @@ struct PhotoSourceButton<Label: View>: View {
     let onPick: (UIImage) -> Void
     @ViewBuilder var label: Label
 
-    @State private var showMenu = false
-    @State private var showCamera = false
-    @State private var showLibrary = false
-    @State private var item: PhotosPickerItem?
-
+    // A plain menu + UIKit pickers: no SwiftUI presentation state, so it works inside sheets,
+    // lists and nested sheets without ever closing the screens underneath.
     var body: some View {
-        Button { showMenu = true } label: { label }
-            .confirmationDialog("Add photo", isPresented: $showMenu) {
-                if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                    Button("Take Photo") { showCamera = true }
-                }
-                Button("Choose from Library") { showLibrary = true }
+        Menu {
+            if Presenter.hasCamera {
+                Button("Take Photo", systemImage: "camera") { Presenter.camera(onPick) }
             }
-            .photosPicker(isPresented: $showLibrary, selection: $item, matching: .images)
-            .fullScreenCover(isPresented: $showCamera) {
-                CameraPicker { img in
-                    showCamera = false
-                    if let img { onPick(img) }
-                }
-                .ignoresSafeArea()
-            }
-            .onChange(of: item) { _, newItem in
-                guard let newItem else { return }
-                Task {
-                    if let d = try? await newItem.loadTransferable(type: Data.self), let img = UIImage(data: d) { onPick(img) }
-                    item = nil
-                }
-            }
+            Button("Choose from Library", systemImage: "photo.on.rectangle") { Presenter.photoLibrary(onPick) }
+        } label: { label }
     }
 }
 

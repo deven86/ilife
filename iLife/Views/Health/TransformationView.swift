@@ -222,8 +222,8 @@ struct CaptureProgressSheet: View {
                         Image(uiImage: image).resizable().scaledToFit().frame(maxHeight: 360).frame(maxWidth: .infinity)
                     }
                     if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                        Button(image == nil ? "Take photo" : "Retake photo", systemImage: "camera.fill") { showCamera = true }
-                        Button(videoURL == nil ? "Record video (up to 30 s)" : "Record again", systemImage: "video.fill") { showVideoCamera = true }
+                        Button(image == nil ? "Take photo" : "Retake photo", systemImage: "camera.fill") { Presenter.camera(front: true) { image = $0; videoURL = nil } }
+                        Button(videoURL == nil ? "Record video (up to 30 s)" : "Record again", systemImage: "video.fill") { Presenter.videoCamera(front: true) { url in Task { await useVideo(url) } } }
                     }
                     PhotoSourceButton(onPick: { image = $0; videoURL = nil }) { Label("Choose photo from Library", systemImage: "photo.on.rectangle") }
                     PhotosPicker(selection: $videoItem, matching: .videos) { Label("Choose video from Library", systemImage: "film") }
@@ -250,20 +250,6 @@ struct CaptureProgressSheet: View {
                         .disabled((image == nil && videoURL == nil) || saving)
                 }
             }
-            .fullScreenCover(isPresented: $showCamera) {
-                CameraPicker(device: .front) { img in
-                    showCamera = false
-                    if let img { image = img; videoURL = nil }
-                }
-                .ignoresSafeArea()
-            }
-            .fullScreenCover(isPresented: $showVideoCamera) {
-                VideoCameraPicker { url in
-                    showVideoCamera = false
-                    if let url { Task { await useVideo(url) } }
-                }
-                .ignoresSafeArea()
-            }
             .onChange(of: videoItem) { _, item in
                 guard let item else { return }
                 Task {
@@ -271,7 +257,7 @@ struct CaptureProgressSheet: View {
                     videoItem = nil
                 }
             }
-            .onAppear { if defaultWeight > 0 { weight = defaultWeight.clean } }
+            .onFirstAppear { if defaultWeight > 0 { weight = defaultWeight.clean } }
         }
     }
 

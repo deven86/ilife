@@ -79,9 +79,16 @@ struct AddMedicalDocView: View {
                     if data != nil {
                         Label("\(fileType.uppercased()) attached", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
                     }
-                    Button("Scan document", systemImage: "doc.viewfinder") { showCamera = true }
+                    Button("Scan document", systemImage: "doc.viewfinder") { Presenter.scan { pages in if !pages.isEmpty { data = Self.pdf(from: pages); fileType = "pdf" } } }
+                        .disabled(!Presenter.canScan)
                     PhotosPicker(selection: $photo, matching: .images) { Label("Choose photo", systemImage: "photo") }
-                    Button("Upload from Files", systemImage: "folder") { showFiles = true }
+                    Button("Upload from Files", systemImage: "folder") {
+                        Presenter.file(types: [.pdf, .image]) { url in
+                            data = try? Data(contentsOf: url)
+                            fileType = url.pathExtension.lowercased() == "pdf" ? "pdf" : "jpg"
+                            if title.isEmpty { title = url.deletingPathExtension().lastPathComponent }
+                        }
+                    }
                 }
             }
             .navigationTitle("Add \(kind.rawValue)")
@@ -98,15 +105,6 @@ struct AddMedicalDocView: View {
                     .disabled(data == nil)
                 }
             }
-            .fullScreenCover(isPresented: $showCamera) {
-                DocumentScanner { pages in
-                    showCamera = false
-                    if !pages.isEmpty { data = Self.pdf(from: pages); fileType = "pdf" }
-                }
-                .ignoresSafeArea()
-            }
-            .fileImporter(isPresented: $showFiles, allowedContentTypes: [.pdf, .image]) { res in
-                guard case .success(let url) = res else { return }
                 let access = url.startAccessingSecurityScopedResource()
                 defer { if access { url.stopAccessingSecurityScopedResource() } }
                 data = try? Data(contentsOf: url)

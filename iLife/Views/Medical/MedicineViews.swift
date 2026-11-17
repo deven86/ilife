@@ -299,7 +299,7 @@ struct MedicineEditor: View {
             .confirmationDialog("Delete this medicine, its dose history, prescription and bills?", isPresented: $confirmDelete, titleVisibility: .visible) {
                 Button("Delete", role: .destructive) { delete() }
             }
-            .onAppear(perform: load)
+            .onFirstAppear(perform: load)
             .interactiveDismissDisabled()
         }
     }

@@ -245,7 +245,16 @@ struct SessionSetupSheet: View {
                         }
                     }
                     if sound == .myFile {
-                        Button(fileName.isEmpty ? "Choose an audio file" : "File: \(fileName)", systemImage: "folder") { showFile = true }
+                        Button(fileName.isEmpty ? "Choose an audio file" : "File: \(fileName)", systemImage: "folder") {
+                            Presenter.file(types: [.audio]) { url in
+                                try? FileManager.default.createDirectory(at: Self.fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+                                try? FileManager.default.removeItem(at: Self.fileURL)
+                                if (try? FileManager.default.copyItem(at: url, to: Self.fileURL)) != nil {
+                                    fileName = url.lastPathComponent
+                                    UserDefaults.standard.set(fileName, forKey: "medFileName")
+                                }
+                            }
+                        }
                     }
                     if sound == .binaural { Text("Binaural tones need headphones.").font(.caption2).foregroundStyle(.secondary) }
                 }
@@ -269,14 +278,12 @@ struct SessionSetupSheet: View {
                 .disabled(sound == .myFile && fileName.isEmpty)
                 .padding()
             }
-            .onAppear { minutes = script.defaultLength }
+            .onFirstAppear { minutes = script.defaultLength }
             .sheet(isPresented: $showPlaylists) { PlaylistPicker() }
             .fullScreenCover(isPresented: $showPlayer, onDismiss: { dismiss() }) {
                 MeditationPlayerView(script: script, minutes: isCustom ? (script.lengths.first ?? 5) : minutes, lang: script.fixedLang ?? lang,
                                      sound: sound, moodBefore: moodBefore)
             }
-            .fileImporter(isPresented: $showFile, allowedContentTypes: [.audio]) { res in
-                guard case .success(let url) = res else { return }
                 let ok = url.startAccessingSecurityScopedResource()
                 defer { if ok { url.stopAccessingSecurityScopedResource() } }
                 try? FileManager.default.createDirectory(at: Self.fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)

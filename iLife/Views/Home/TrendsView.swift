@@ -302,7 +302,7 @@ struct WeightLogSheet: View {
                     .disabled(n(weight) <= 0 && n(waist) <= 0)
                 }
             }
-            .onAppear { if weight.isEmpty, health.weightKg > 0 { weight = health.weightKg.clean } }
+            .onFirstAppear { if weight.isEmpty, health.weightKg > 0 { weight = health.weightKg.clean } }
         }
     }
 

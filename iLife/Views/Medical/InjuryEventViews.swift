@@ -31,15 +31,16 @@ struct LinkedMedicinesSection: View {
                 }
             }
             Button("Add a medicine for this", systemImage: "plus.circle.fill") { adding = true }
+                // Sheets hang off this one row — on the Section they'd be copied onto every row and fight.
+                .sheet(isPresented: $adding) {
+                    MedicineEditor(medication: nil, linkUID: ownerUID, linkKind: ownerKind, presetCause: cause, presetDoctor: doctor, presetHospital: hospital)
+                }
+                .sheet(item: $editing) { MedicineEditor(medication: $0) }
         } header: {
             Text("Medicines (\(linked.count))")
         } footer: {
             Text("Medicines added here also appear in Medicines, with reminders and dose tracking.")
         }
-        .sheet(isPresented: $adding) {
-            MedicineEditor(medication: nil, linkUID: ownerUID, linkKind: ownerKind, presetCause: cause, presetDoctor: doctor, presetHospital: hospital)
-        }
-        .sheet(item: $editing) { MedicineEditor(medication: $0) }
     }
 }
 
@@ -209,7 +210,7 @@ struct InjuryEditor: View {
             .confirmationDialog("Delete this injury with its photos, reports and bills? Linked medicines are kept.", isPresented: $confirmDelete, titleVisibility: .visible) {
                 Button("Delete", role: .destructive) { delete() }
             }
-            .onAppear(perform: load)
+            .onFirstAppear(perform: load)
             .interactiveDismissDisabled()
         }
     }
@@ -391,7 +392,7 @@ struct HealthEventEditor: View {
             .confirmationDialog("Delete this record with its reports, photos and bills? Linked medicines are kept.", isPresented: $confirmDelete, titleVisibility: .visible) {
                 Button("Delete", role: .destructive) { delete() }
             }
-            .onAppear(perform: load)
+            .onFirstAppear(perform: load)
             .interactiveDismissDisabled()
         }
     }

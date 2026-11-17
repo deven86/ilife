@@ -194,3 +194,21 @@ struct Glow: ViewModifier {
 extension View {
     func glow(_ color: Color) -> some View { modifier(Glow(color: color)) }
 }
+
+/// Runs once, the first time the view appears — not again when it reappears after a camera,
+/// photo picker or another screen closes (which would wipe what was just picked or typed).
+private struct FirstAppear: ViewModifier {
+    @State private var done = false
+    let action: () -> Void
+    func body(content: Content) -> some View {
+        content.onAppear {
+            guard !done else { return }
+            done = true
+            action()
+        }
+    }
+}
+
+extension View {
+    func onFirstAppear(perform action: @escaping () -> Void) -> some View { modifier(FirstAppear(action: action)) }
+}

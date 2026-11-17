@@ -347,7 +347,7 @@ struct CustomFoodSheet: View {
                     .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
-            .onAppear { if name.isEmpty { name = initialName } }
+            .onFirstAppear { if name.isEmpty { name = initialName } }
         }
     }
 

@@ -57,7 +57,6 @@ struct AttachmentsSection: View {
     @MemberQuery private var all: [MedicalAttachment]
     @State private var adding: String?
     @State private var editing: MedicalAttachment?
-    @State private var preview: URL?
 
     private var items: [MedicalAttachment] { all.filter { $0.ownerUID == ownerUID }.sorted { $0.date > $1.date } }
     private var billTotal: Double { items.filter { $0.kind == "Bill" }.reduce(0) { $0 + $1.amount } }
@@ -87,16 +86,17 @@ struct AttachmentsSection: View {
             } label: {
                 Label("Add photo, report or bill", systemImage: "paperclip.badge.ellipsis")
             }
+            // Sheets hang off this ONE row. Attached to the Section they'd be copied onto every row,
+            // and the copies fight each other — that closed the whole injury screen.
+            .sheet(item: Binding(get: { adding.map { KindBox(kind: $0) } }, set: { adding = $0?.kind })) { box in
+                AttachmentEditor(attachment: nil, ownerUID: ownerUID, ownerKind: ownerKind, ownerTitle: ownerTitle, initialKind: box.kind)
+            }
+            .sheet(item: $editing) { AttachmentEditor(attachment: $0, ownerUID: ownerUID, ownerKind: ownerKind, ownerTitle: ownerTitle, initialKind: $0.kind) }
         } header: {
             Text(header)
         } footer: {
             if billTotal > 0 { Text("Bills total \(inr(billTotal)) — added to Expenses under Medical & Tests.") }
         }
-        .sheet(item: Binding(get: { adding.map { KindBox(kind: $0) } }, set: { adding = $0?.kind })) { box in
-            AttachmentEditor(attachment: nil, ownerUID: ownerUID, ownerKind: ownerKind, ownerTitle: ownerTitle, initialKind: box.kind)
-        }
-        .sheet(item: $editing) { AttachmentEditor(attachment: $0, ownerUID: ownerUID, ownerKind: ownerKind, ownerTitle: ownerTitle, initialKind: $0.kind) }
-        .quickLookPreview($preview)
     }
 
     private struct KindBox: Identifiable { let kind: String; var id: String { kind } }
@@ -123,13 +123,8 @@ struct AttachmentsSection: View {
     }
 
     private func open(_ a: MedicalAttachment) {
-        guard let data = a.data else { return }
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("medical", isDirectory: true)
-        try? FileManager.default.removeItem(at: dir)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let url = dir.appendingPathComponent(Exporter.safe(a.title.isEmpty ? a.kind : a.title) + "." + a.fileType)
-        try? data.write(to: url, options: .completeFileProtection)
-        preview = url
+        guard let data = a.data else { editing = a; return }
+        Presenter.preview(data: data, name: a.title.isEmpty ? a.kind : a.title, ext: a.fileType)
     }
 
     private func delete(_ a: MedicalAttachment) {
@@ -155,8 +150,6 @@ struct AttachmentEditor: View {
     @State private var data: Data?
     @State private var thumb: Data?
     @State private var fileType = "jpg"
-    @State private var showScan = false
-    @State private var showFiles = false
 
     var body: some View {
         NavigationStack {
@@ -170,9 +163,17 @@ struct AttachmentEditor: View {
                     PhotoSourceButton(onPick: { img in
                         data = ImageTools.jpeg(img, maxSide: 2200, quality: 0.8); thumb = ImageTools.thumbnail(img); fileType = "jpg"
                     }) { Label(data == nil ? "Take or choose a photo" : "Replace with a photo", systemImage: "camera.fill") }
-                    Button("Scan document", systemImage: "doc.viewfinder") { showScan = true }
-                        .disabled(!VNDocumentCameraViewController.isSupported)
-                    Button("Attach PDF or image from Files", systemImage: "folder") { showFiles = true }
+                    Button("Scan document", systemImage: "doc.viewfinder") {
+                        Presenter.scan { pages in
+                            guard !pages.isEmpty else { return }
+                            data = AddMedicalDocView.pdf(from: pages); fileType = "pdf"; thumb = ImageTools.thumbnail(pages[0])
+                        }
+                    }
+                    .disabled(!Presenter.canScan)
+                    Button("Attach PDF or image from Files", systemImage: "folder") { Presenter.file(types: [.pdf, .image], useFile) }
+                    if data != nil && fileType == "jpg" || fileType == "pdf" && data != nil {
+                        Button("View", systemImage: "eye") { if let data { Presenter.preview(data: data, name: title.isEmpty ? kind : title, ext: fileType) } }
+                    }
                 }
                 Section {
                     Picker("Type", selection: $kind) {
@@ -200,35 +201,24 @@ struct AttachmentEditor: View {
                     Button("Save", action: save).disabled(data == nil && !(kind == "Bill" && (Double(amount) ?? 0) > 0))
                 }
             }
-            .onAppear {
+            .onFirstAppear {
                 kind = initialKind
                 if let a = attachment {
                     kind = a.kind; title = a.title; date = a.date; amount = a.amount > 0 ? a.amount.clean : ""
                     data = a.data; thumb = a.thumbnail; fileType = a.fileType
                 }
             }
-            .fullScreenCover(isPresented: $showScan) {
-                DocumentScanner { pages in
-                    showScan = false
-                    if !pages.isEmpty {
-                        data = AddMedicalDocView.pdf(from: pages); fileType = "pdf"; thumb = ImageTools.thumbnail(pages[0])
-                    }
-                }
-                .ignoresSafeArea()
-            }
-            .fileImporter(isPresented: $showFiles, allowedContentTypes: [.pdf, .image]) { res in
-                guard case .success(let url) = res else { return }
-                let ok = url.startAccessingSecurityScopedResource()
-                defer { if ok { url.stopAccessingSecurityScopedResource() } }
-                guard let d = try? Data(contentsOf: url) else { return }
-                if url.pathExtension.lowercased() == "pdf" {
-                    data = d; fileType = "pdf"; thumb = nil
-                } else if let img = UIImage(data: d) {
-                    data = ImageTools.jpeg(img, maxSide: 2200, quality: 0.8); thumb = ImageTools.thumbnail(img); fileType = "jpg"
-                }
-                if title.isEmpty { title = url.deletingPathExtension().lastPathComponent }
-            }
         }
+    }
+
+    private func useFile(_ url: URL) {
+        guard let d = try? Data(contentsOf: url) else { return }
+        if url.pathExtension.lowercased() == "pdf" {
+            data = d; fileType = "pdf"; thumb = InBodyScanner.images(fromPDF: d).first.map { ImageTools.thumbnail($0) } ?? nil
+        } else if let img = UIImage(data: d) {
+            data = ImageTools.jpeg(img, maxSide: 2200, quality: 0.8); thumb = ImageTools.thumbnail(img); fileType = "jpg"
+        }
+        if title.isEmpty { title = url.deletingPathExtension().lastPathComponent }
     }
 
     private func save() {

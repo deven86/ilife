@@ -132,7 +132,7 @@ struct MealPhotoAISheet: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 14))
                         }
                         if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                            Button(image == nil ? "Take a photo of your meal" : "Retake", systemImage: "camera.fill") { showCamera = true }
+                            Button(image == nil ? "Take a photo of your meal" : "Retake", systemImage: "camera.fill") { Presenter.camera { image = $0; items = [] } }
                         }
                         PhotoSourceButton(onPick: { image = $0; items = [] }) { Label("Choose from Library", systemImage: "photo.on.rectangle") }
                         TextField("Or just type what you ate (e.g. 2 rotis, dal, 1 bowl rice, chaas)", text: $note, axis: .vertical)
@@ -176,9 +176,6 @@ struct MealPhotoAISheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 if !items.isEmpty { ToolbarItem(placement: .confirmationAction) { Button("Log all", action: save) } }
-            }
-            .fullScreenCover(isPresented: $showCamera) {
-                CameraPicker { img in showCamera = false; if let img { image = img; items = [] } }.ignoresSafeArea()
             }
         }
     }

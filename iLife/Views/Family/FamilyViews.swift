@@ -299,7 +299,7 @@ struct MemberEditor: View {
                                 isPresented: $confirmDelete, titleVisibility: .visible) {
                 Button("Delete everything", role: .destructive) { delete() }
             }
-            .onAppear(perform: load)
+            .onFirstAppear(perform: load)
         }
     }
 

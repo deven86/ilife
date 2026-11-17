@@ -132,7 +132,7 @@ struct NewExerciseSheet: View {
                     .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
-            .onAppear {
+            .onFirstAppear {
                 if name.isEmpty { name = initialName }
                 isCardio = muscle == "Cardio"
             }
@@ -269,7 +269,7 @@ struct WorkoutEditorView: View {
             .confirmationDialog("Delete this workout?", isPresented: $confirmDelete, titleVisibility: .visible) {
                 Button("Delete", role: .destructive) { if let log { context.delete(log); try? context.save() }; dismiss() }
             }
-            .onAppear(perform: load)
+            .onFirstAppear(perform: load)
         }
     }
 

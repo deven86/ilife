@@ -272,50 +272,33 @@ struct GymSection: View {
 struct BillAttachment: View {
     @Binding var bill: Data?
     @Binding var billType: String
-    @State private var showScan = false
-    @State private var showFiles = false
-    @State private var preview: URL?
 
     var body: some View {
         if bill != nil {
             HStack {
                 Label("Bill attached (\(billType.uppercased()))", systemImage: "checkmark.seal.fill").foregroundStyle(.green)
                 Spacer()
-                Button("View") { open() }.buttonStyle(.bordered)
+                Button("View") { if let bill { Presenter.preview(data: bill, name: "Bill", ext: billType.isEmpty ? "jpg" : billType) } }
+                    .buttonStyle(.bordered)
             }
             Button("Remove bill", role: .destructive) { bill = nil; billType = "" }
         }
-        Button("Scan bill", systemImage: "doc.viewfinder") { showScan = true }
-            .disabled(!VNDocumentCameraViewController.isSupported)
-            .fullScreenCover(isPresented: $showScan) {
-                DocumentScanner { pages in
-                    showScan = false
-                    if !pages.isEmpty { bill = AddMedicalDocView.pdf(from: pages); billType = "pdf" }
-                }
-                .ignoresSafeArea()
+        Button("Scan bill", systemImage: "doc.viewfinder") {
+            Presenter.scan { pages in
+                if !pages.isEmpty { bill = AddMedicalDocView.pdf(from: pages); billType = "pdf" }
             }
+        }
+        .disabled(!Presenter.canScan)
         PhotoSourceButton(onPick: { bill = ImageTools.jpeg($0, maxSide: 2000); billType = "jpg" }) {
             Label("Bill photo", systemImage: "camera.fill")
         }
-        Button("Attach PDF / file", systemImage: "folder") { showFiles = true }
-            .fileImporter(isPresented: $showFiles, allowedContentTypes: [.pdf, .image]) { res in
-                guard case .success(let url) = res else { return }
-                let ok = url.startAccessingSecurityScopedResource()
-                defer { if ok { url.stopAccessingSecurityScopedResource() } }
-                bill = try? Data(contentsOf: url)
-                billType = url.pathExtension.lowercased() == "pdf" ? "pdf" : "jpg"
+        Button("Attach PDF / file", systemImage: "folder") {
+            Presenter.file(types: [.pdf, .image]) { url in
+                guard let d = try? Data(contentsOf: url) else { return }
+                if url.pathExtension.lowercased() == "pdf" { bill = d; billType = "pdf" }
+                else if let img = UIImage(data: d) { bill = ImageTools.jpeg(img, maxSide: 2000); billType = "jpg" }
             }
-            .quickLookPreview($preview)
-    }
-
-    private func open() {
-        guard let bill else { return }
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("bills", isDirectory: true)
-        try? FileManager.default.removeItem(at: dir)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let url = dir.appendingPathComponent("bill.\(billType.isEmpty ? "jpg" : billType)")
-        try? bill.write(to: url, options: .completeFileProtection)
-        preview = url
+        }
     }
 }
 
@@ -382,7 +365,7 @@ struct MembershipEditor: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) { Button("Save", action: save).disabled(m.gymName.isEmpty) }
             }
-            .onAppear {
+            .onFirstAppear {
                 guard let x = membership else { return }
                 m = Draft(gymName: x.gymName, branch: x.branch, address: x.address, phone: x.phone, memberID: x.memberID, planName: x.planName,
                           notes: x.notes, start: x.startDate, end: x.endDate, fee: x.fee > 0 ? String(Int(x.fee)) : "", photo: x.photo)
@@ -572,7 +555,7 @@ struct TrainerEditor: View {
                     ToolbarItem(placement: .topBarTrailing) { Link(destination: url) { Image(systemName: "phone.fill") } }
                 }
             }
-            .onAppear {
+            .onFirstAppear {
                 guard let t = trainer else { return }
                 first = t.firstName; last = t.lastName; speciality = t.speciality; phone = t.phone; gym = t.gymName
                 fee = t.feePerSession > 0 ? String(Int(t.feePerSession)) : ""; notes = t.notes; photo = t.photo
@@ -686,7 +669,7 @@ struct PaymentEditor: View {
                     .disabled((Double(amount) ?? 0) <= 0)
                 }
             }
-            .onAppear {
+            .onFirstAppear {
                 guard let p = payment else { return }
                 kind = p.kind; amount = String(Int(p.amount)); date = p.date; method = p.method; trainerID = p.trainerID
                 sessions = p.sessionsIncluded; hasValidity = p.validFrom != nil
@@ -760,7 +743,7 @@ struct ExpenseEditor: View {
                     .disabled((Double(amount) ?? 0) <= 0)
                 }
             }
-            .onAppear {
+            .onFirstAppear {
                 guard let e = expense else { return }
                 title = e.title; category = e.category; amount = String(Int(e.amount)); date = e.date; vendor = e.vendor
                 quantity = e.quantity; notes = e.notes; bill = e.bill; billType = e.billType; photo = e.photo

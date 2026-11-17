@@ -376,7 +376,7 @@ struct SupplementEditor: View {
             .confirmationDialog("Delete this supplement and its history?", isPresented: $confirmDelete, titleVisibility: .visible) {
                 Button("Delete", role: .destructive) { delete() }
             }
-            .onAppear(perform: load)
+            .onFirstAppear(perform: load)
         }
     }
 
