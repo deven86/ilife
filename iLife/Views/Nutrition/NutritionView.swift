@@ -5,9 +5,9 @@ import Charts
 struct NutritionView: View {
     @Environment(\.modelContext) private var context
     @EnvironmentObject var health: HealthKitManager
-    @Query(sort: \FoodEntry.date, order: .reverse) private var foods: [FoodEntry]
-    @Query(sort: \WaterEntry.date, order: .reverse) private var waters: [WaterEntry]
-    @Query private var profiles: [HealthProfile]
+    @MemberQuery(sort: \FoodEntry.date, order: .reverse) private var foods: [FoodEntry]
+    @MemberQuery(sort: \WaterEntry.date, order: .reverse) private var waters: [WaterEntry]
+    @MemberQuery private var profiles: [HealthProfile]
 
     @State private var day = Date.now
     @State private var addMeal: MealType?
@@ -183,7 +183,7 @@ struct AddFoodSheet: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \CustomFood.name) private var myFoods: [CustomFood]
-    @Query(sort: \FoodEntry.date, order: .reverse) private var history: [FoodEntry]
+    @MemberQuery(sort: \FoodEntry.date, order: .reverse) private var history: [FoodEntry]
     @State private var search = ""
     @State private var category = "All"
     @State private var servings = 1.0
@@ -223,7 +223,7 @@ struct AddFoodSheet: View {
                     Picker("Meal", selection: $meal) {
                         ForEach(MealType.allCases) { Label($0.title, systemImage: $0.icon).tag($0) }
                     }
-                    DatePicker("Time", selection: $time, displayedComponents: .hourAndMinute)
+                    DatePicker("When", selection: $time, in: ...Date.now.addingTimeInterval(3600))
                     Stepper("Servings: \(servings.clean)", value: $servings, in: 0.25...10, step: 0.25)
                 } footer: {
                     Text("Tap a food to log it. Tap its picture to add your own photo — it's saved for next time.")

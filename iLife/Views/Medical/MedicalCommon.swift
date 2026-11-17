@@ -17,6 +17,7 @@ enum MedicalMoney {
         let e = existing.first ?? Expense()
         if existing.isEmpty { ctx.insert(e) }
         e.sourceUID = uid
+        e.memberUID = a.memberUID
         e.category = .medical
         e.title = ownerTitle + (a.title.isEmpty ? "" : " — \(a.title)")
         e.amount = a.amount
@@ -53,7 +54,7 @@ struct AttachmentsSection: View {
     var kinds: [String] = ["Photo", "Prescription", "Report", "Bill", "Scan / X-ray", "Discharge summary", "Other"]
     var header = "Photos, reports & bills"
     @Environment(\.modelContext) private var context
-    @Query private var all: [MedicalAttachment]
+    @MemberQuery private var all: [MedicalAttachment]
     @State private var adding: String?
     @State private var editing: MedicalAttachment?
     @State private var preview: URL?
@@ -263,7 +264,8 @@ enum MedicationReminders {
         let days = m.weekdays.isEmpty || m.weekdays.count == 7 ? [0] : m.weekdays
         for slot in m.doseSlots {
             let c = UNMutableNotificationContent()
-            c.title = "💊 \(m.displayName)\(m.dose.isEmpty ? "" : " · \(m.dose)")"
+            c.title = "💊 " + Member.prefix(m.memberUID) + "\(m.displayName)\(m.dose.isEmpty ? "" : " · \(m.dose)")"
+            c.userInfo["member"] = m.memberUID
             c.body = "\(slot.rawValue)\(m.instructions.isEmpty ? "" : " — \(m.instructions)"). Tick it off in iLife."
             c.sound = .default
             for day in days {

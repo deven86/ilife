@@ -7,6 +7,8 @@ struct RootView: View {
     @Environment(\.modelContext) private var context
     @State private var showSession = false
     @AppStorage("onboarded") private var onboarded = false
+    @ObservedObject private var members = MemberStore.shared
+    @State private var showMembers = false
 
     var body: some View {
         TabView {
@@ -17,6 +19,13 @@ struct RootView: View {
             Tab("More", systemImage: "gearshape.fill") { NavigationStack { SettingsView() } }
         }
         .tabViewStyle(.sidebarAdaptable)   // tab bar on iPhone, sidebar on iPad
+        // Apple Health only holds your data — family members see their manually logged entries.
+        .environmentObject(members.isMe ? HealthKitManager.shared : HealthKitManager.blank)
+        .id(members.uid)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if !members.isMe { ViewingMemberBanner { showMembers = true } }
+        }
+        .sheet(isPresented: $showMembers) { MemberPickerSheet().presentationDetents([.medium, .large]) }
         .safeAreaInset(edge: .bottom) {
             if session.isActive && !showSession {
                 ActiveSessionBar { showSession = true }
@@ -27,9 +36,12 @@ struct RootView: View {
         .onChange(of: session.isActive) { _, active in if active { showSession = true } }
         .sheet(isPresented: .constant(!onboarded)) { OnboardingView { onboarded = true } .interactiveDismissDisabled() }
         .task {
+            let all = (try? context.fetch(FetchDescriptor<HealthProfile>())) ?? []
+            Member.cacheNames(all)
+            if !Member.isMe && !all.contains(where: { $0.memberUID == Member.current }) { members.switchTo("") }
             if health.isAuthorized || UserDefaults.standard.bool(forKey: "healthConnected") {
-                await health.refreshToday()
-                await health.importWorkouts(into: context, notify: false)
+                await HealthKitManager.shared.refreshToday()
+                await HealthKitManager.shared.importWorkouts(into: context, notify: false)
             }
         }
     }

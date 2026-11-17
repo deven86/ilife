@@ -9,7 +9,7 @@ struct SettingsView: View {
     @EnvironmentObject var health: HealthKitManager
     @EnvironmentObject var music: MusicController
     @Environment(\.modelContext) private var context
-    @Query private var profiles: [HealthProfile]
+    @MemberQuery private var profiles: [HealthProfile]
     @AppStorage("userName") private var userName = "Devendra"
     @State private var wallpaperItem: PhotosPickerItem?
     @State private var iCloudStatus = "Checking…"
@@ -17,7 +17,7 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Section("Profile") {
+            Section(Member.isMe ? "Profile" : "Profile — \(Member.name(Member.current))") {
                 if let p = profiles.first {
                     NavigationLink { ProfileView(profile: p) } label: {
                         HStack(spacing: 14) {
@@ -32,6 +32,7 @@ struct SettingsView: View {
                         .padding(.vertical, 4)
                     }
                     NavigationLink("Goals & Targets") { GoalsView(profile: p) }
+                    NavigationLink { FamilyView() } label: { Label("Family members", systemImage: "person.3.fill") }
                 } else {
                     Button("Set up your profile") { _ = ensureProfile(context) }
                 }

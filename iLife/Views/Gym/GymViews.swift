@@ -11,11 +11,11 @@ func inr(_ v: Double) -> String { v.formatted(.currency(code: "INR").precision(.
 
 struct GymSection: View {
     @Environment(\.modelContext) private var context
-    @Query(sort: \GymMembership.endDate, order: .reverse) private var memberships: [GymMembership]
-    @Query(sort: \Trainer.firstName) private var trainers: [Trainer]
-    @Query(sort: \GymPayment.date, order: .reverse) private var payments: [GymPayment]
-    @Query(sort: \Expense.date, order: .reverse) private var expenses: [Expense]
-    @Query(sort: \WorkoutLog.start, order: .reverse) private var logs: [WorkoutLog]
+    @MemberQuery(sort: \GymMembership.endDate, order: .reverse) private var memberships: [GymMembership]
+    @MemberQuery(sort: \Trainer.firstName) private var trainers: [Trainer]
+    @MemberQuery(sort: \GymPayment.date, order: .reverse) private var payments: [GymPayment]
+    @MemberQuery(sort: \Expense.date, order: .reverse) private var expenses: [Expense]
+    @MemberQuery(sort: \WorkoutLog.start, order: .reverse) private var logs: [WorkoutLog]
 
     @State private var editMembership: GymMembership?
     @State private var newMembership = false
@@ -410,7 +410,7 @@ struct TrainerEditor: View {
     let trainer: Trainer?
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
-    @Query(sort: \WorkoutLog.start, order: .reverse) private var logs: [WorkoutLog]
+    @MemberQuery(sort: \WorkoutLog.start, order: .reverse) private var logs: [WorkoutLog]
     @State private var first = ""
     @State private var last = ""
     @State private var speciality = ""
@@ -419,7 +419,7 @@ struct TrainerEditor: View {
     @State private var fee = ""
     @State private var notes = ""
     @State private var photo: Data?
-    @Query(sort: \GymPayment.date, order: .reverse) private var payments: [GymPayment]
+    @MemberQuery(sort: \GymPayment.date, order: .reverse) private var payments: [GymPayment]
     @State private var prior = 0
     // New package form
     @State private var pkgSessions = 36
@@ -611,7 +611,7 @@ struct PaymentEditor: View {
     let payment: GymPayment?
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
-    @Query(sort: \Trainer.firstName) private var trainers: [Trainer]
+    @MemberQuery(sort: \Trainer.firstName) private var trainers: [Trainer]
     @State private var kind: PaymentKind = .membership
     @State private var amount = ""
     @State private var date = Date.now

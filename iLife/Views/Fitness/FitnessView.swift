@@ -6,8 +6,8 @@ struct FitnessView: View {
     @EnvironmentObject var session: WorkoutSessionController
     @EnvironmentObject var health: HealthKitManager
     @Environment(\.modelContext) private var context
-    @Query(sort: \WorkoutLog.start, order: .reverse) private var logs: [WorkoutLog]
-    @Query(sort: \WorkoutPlan.created) private var plans: [WorkoutPlan]
+    @MemberQuery(sort: \WorkoutLog.start, order: .reverse) private var logs: [WorkoutLog]
+    @MemberQuery(sort: \WorkoutPlan.created) private var plans: [WorkoutPlan]
 
     @State private var tab = 0
     @State private var showQuickStart = false

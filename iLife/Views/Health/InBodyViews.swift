@@ -226,7 +226,7 @@ struct InBodyImportView: View {
 
 struct InBodyListView: View {
     @Environment(\.modelContext) private var context
-    @Query(sort: \InBodyScan.date, order: .reverse) private var scans: [InBodyScan]
+    @MemberQuery(sort: \InBodyScan.date, order: .reverse) private var scans: [InBodyScan]
     var body: some View {
         List {
             ForEach(scans) { s in
@@ -246,7 +246,7 @@ struct InBodyListView: View {
 
 struct InBodyDetailView: View {
     let scan: InBodyScan
-    @Query(sort: \InBodyScan.date, order: .reverse) private var allScans: [InBodyScan]
+    @MemberQuery(sort: \InBodyScan.date, order: .reverse) private var allScans: [InBodyScan]
     private var previous: InBodyScan? { allScans.first { $0.date < scan.date } }
     var body: some View {
         List {

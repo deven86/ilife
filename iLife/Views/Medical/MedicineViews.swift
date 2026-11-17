@@ -5,8 +5,8 @@ import SwiftData
 
 struct MedicinesTodayCard: View {
     @Environment(\.modelContext) private var context
-    @Query(sort: \Medication.name) private var meds: [Medication]
-    @Query private var doses: [MedicationDose]
+    @MemberQuery(sort: \Medication.name) private var meds: [Medication]
+    @MemberQuery private var doses: [MedicationDose]
     @State private var editing: Medication?
 
     private var today: Date { Calendar.current.startOfDay(for: .now) }
@@ -75,8 +75,8 @@ struct MedicinesTodayCard: View {
 
 struct MedicineListView: View {
     @Environment(\.modelContext) private var context
-    @Query(sort: \Medication.startDate, order: .reverse) private var meds: [Medication]
-    @Query private var doses: [MedicationDose]
+    @MemberQuery(sort: \Medication.startDate, order: .reverse) private var meds: [Medication]
+    @MemberQuery private var doses: [MedicationDose]
     @State private var editing: Medication?
     @State private var adding = false
 
@@ -170,8 +170,8 @@ struct MedicineEditor: View {
 
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
-    @Query(sort: \Injury.date, order: .reverse) private var injuries: [Injury]
-    @Query(sort: \HealthEvent.date, order: .reverse) private var events: [HealthEvent]
+    @MemberQuery(sort: \Injury.date, order: .reverse) private var injuries: [Injury]
+    @MemberQuery(sort: \HealthEvent.date, order: .reverse) private var events: [HealthEvent]
 
     @State private var uid = UUID().uuidString
     @State private var name = ""

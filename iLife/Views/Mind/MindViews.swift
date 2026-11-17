@@ -9,7 +9,7 @@ import UserNotifications
 struct MindSection: View {
     @Environment(\.modelContext) private var context
     @EnvironmentObject var theme: ThemeManager
-    @Query(sort: \MeditationLog.date, order: .reverse) private var logs: [MeditationLog]
+    @MemberQuery(sort: \MeditationLog.date, order: .reverse) private var logs: [MeditationLog]
     @Query(sort: \CustomMeditation.created, order: .reverse) private var custom: [CustomMeditation]
     @ObservedObject private var ai = AIService.shared
     @State private var category: MCategory?
@@ -565,7 +565,7 @@ struct AIMeditationSheet: View {
 
 struct MindHistoryView: View {
     @Environment(\.modelContext) private var context
-    @Query(sort: \MeditationLog.date, order: .reverse) private var logs: [MeditationLog]
+    @MemberQuery(sort: \MeditationLog.date, order: .reverse) private var logs: [MeditationLog]
 
     private var csvFiles: [URL] {
         let rows: [[Any?]] = logs.map { [$0.date, $0.title, $0.category, $0.minutes, $0.language, $0.soundscape, $0.moodBefore, $0.moodAfter, $0.completed] }

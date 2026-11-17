@@ -23,7 +23,8 @@ enum SupplementReminders {
         let days = s.weekdays.isEmpty || s.weekdays.count == 7 ? [0] : s.weekdays
         for slot in s.doseSlots {
             let content = UNMutableNotificationContent()
-            content.title = "\(s.name)\(s.dose.isEmpty ? "" : " · \(s.dose)")"
+            content.title = Member.prefix(s.memberUID) + "\(s.name)\(s.dose.isEmpty ? "" : " · \(s.dose)")"
+            content.userInfo["member"] = s.memberUID
             content.body = "\(slot.rawValue). Tap to tick it off in iLife."
             content.sound = .default
             for day in days {
@@ -50,8 +51,8 @@ enum SupplementReminders {
 struct SupplementsCard: View {
     let day: Date
     @Environment(\.modelContext) private var context
-    @Query(sort: \Supplement.name) private var supplements: [Supplement]
-    @Query private var doses: [SupplementDose]
+    @MemberQuery(sort: \Supplement.name) private var supplements: [Supplement]
+    @MemberQuery private var doses: [SupplementDose]
     @State private var editing: Supplement?
     @State private var adding = false
 
@@ -148,8 +149,8 @@ struct SupplementsCard: View {
 
 struct SupplementListView: View {
     @Environment(\.modelContext) private var context
-    @Query(sort: \Supplement.startDate, order: .reverse) private var supplements: [Supplement]
-    @Query private var doses: [SupplementDose]
+    @MemberQuery(sort: \Supplement.startDate, order: .reverse) private var supplements: [Supplement]
+    @MemberQuery private var doses: [SupplementDose]
     @State private var editing: Supplement?
     @State private var adding = false
 
@@ -233,7 +234,7 @@ struct SupplementEditor: View {
     let supplement: Supplement?
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
-    @Query(sort: \Trainer.firstName) private var trainers: [Trainer]
+    @MemberQuery(sort: \Trainer.firstName) private var trainers: [Trainer]
 
     @State private var name = ""
     @State private var company = ""

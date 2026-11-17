@@ -4,8 +4,8 @@ import ContactsUI
 
 struct EmergencyView: View {
     @Environment(\.modelContext) private var context
-    @Query private var contacts: [EmergencyContact]
-    @Query private var profiles: [HealthProfile]
+    @MemberQuery private var contacts: [EmergencyContact]
+    @MemberQuery private var profiles: [HealthProfile]
     @State private var showAdd = false
     @State private var showPicker = false
 
@@ -74,7 +74,7 @@ struct MedicalIDSection: View {
 struct AddContactSheet: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
-    @Query private var contacts: [EmergencyContact]
+    @MemberQuery private var contacts: [EmergencyContact]
     @State private var name = ""
     @State private var relation = ""
     @State private var phone = ""

@@ -10,7 +10,13 @@ import UserNotifications
 @MainActor
 final class HealthKitManager: ObservableObject {
     static let shared = HealthKitManager()
+    /// An empty stand-in shown while you look at a family member: Apple Health only holds *your* data.
+    static let blank = HealthKitManager(blank: true)
     let store = HKHealthStore()
+    let isBlank: Bool
+    init(blank: Bool = false) { isBlank = blank }
+    /// Writes go to Apple Health only for your own entries.
+    private var canWrite: Bool { isAvailable && Member.isMe }
 
     @Published var isAuthorized = false
     @Published var steps: Double = 0
@@ -26,7 +32,7 @@ final class HealthKitManager: ObservableObject {
     @Published var sleepYesterday: Double = 0
     @Published var weeklyActiveCalories: [Double] = Array(repeating: 0, count: 7)
 
-    var isAvailable: Bool { HKHealthStore.isHealthDataAvailable() }
+    var isAvailable: Bool { !isBlank && HKHealthStore.isHealthDataAvailable() }
 
     private var readTypes: Set<HKObjectType> {
         var s: Set<HKObjectType> = [HKObjectType.workoutType()]
@@ -164,7 +170,7 @@ final class HealthKitManager: ObservableObject {
 
     /// Saves meditation time to Apple Health as Mindful Minutes (asks permission the first time).
     func saveMindful(start: Date, end: Date) async {
-        guard isAvailable, end > start else { return }
+        guard canWrite, end > start else { return }
         let type = HKCategoryType(.mindfulSession)
         try? await store.requestAuthorization(toShare: [type], read: [type])
         let sample = HKCategorySample(type: type, value: HKCategoryValue.notApplicable.rawValue, start: start, end: end)
@@ -172,13 +178,14 @@ final class HealthKitManager: ObservableObject {
     }
 
     func saveWeight(kg: Double, date: Date = .now) async {
-        guard kg > 0 else { return }
+        guard canWrite, kg > 0 else { return }
         let s = HKQuantitySample(type: HKQuantityType(.bodyMass), quantity: HKQuantity(unit: .gramUnit(with: .kilo), doubleValue: kg), start: date, end: date)
         try? await store.save(s)
         weightKg = kg
     }
 
     func recentWorkouts(days: Int = 30) async -> [HKWorkout] {
+        guard isAvailable else { return [] }
         let start = Calendar.current.date(byAdding: .day, value: -days, to: .now)!
         let descriptor = HKSampleQueryDescriptor(
             predicates: [.workout(HKQuery.predicateForSamples(withStart: start, end: .now))],
@@ -204,6 +211,7 @@ final class HealthKitManager: ObservableObject {
             let log = WorkoutLog(name: w.workoutActivityType.displayName, category: w.workoutActivityType.category,
                                  start: w.startDate, durationMinutes: w.duration / 60, calories: kcal, avgHeartRate: hr,
                                  source: source, healthKitID: w.uuid.uuidString)
+            log.memberUID = ""   // Apple Health workouts are always yours
             context.insert(log)
             added += 1
             if notify && w.endDate > Date.now.addingTimeInterval(-6 * 3600) {
@@ -234,6 +242,7 @@ final class HealthKitManager: ObservableObject {
     // MARK: Writing
 
     func saveFood(_ entry: FoodEntry) async {
+        guard canWrite, entry.memberUID.isEmpty else { return }
         let meta: [String: Any] = [HKMetadataKeyFoodType: entry.name]
         var samples: [HKQuantitySample] = []
         func add(_ id: HKQuantityTypeIdentifier, _ unit: HKUnit, _ v: Double) {
@@ -249,6 +258,7 @@ final class HealthKitManager: ObservableObject {
     }
 
     func saveWater(ml: Double) async {
+        guard canWrite else { return }
         let s = HKQuantitySample(type: HKQuantityType(.dietaryWater), quantity: HKQuantity(unit: .literUnit(with: .milli), doubleValue: ml),
                                  start: .now, end: .now)
         try? await store.save(s)
@@ -256,6 +266,7 @@ final class HealthKitManager: ObservableObject {
     }
 
     func saveInBody(_ scan: InBodyScan) async {
+        guard canWrite, scan.memberUID.isEmpty else { return }
         var samples: [HKQuantitySample] = []
         if scan.weightKg > 0 {
             samples.append(HKQuantitySample(type: HKQuantityType(.bodyMass), quantity: HKQuantity(unit: .gramUnit(with: .kilo), doubleValue: scan.weightKg), start: scan.date, end: scan.date))
@@ -270,6 +281,7 @@ final class HealthKitManager: ObservableObject {
     }
 
     func saveWorkout(_ log: WorkoutLog, activity: HKWorkoutActivityType) async {
+        guard canWrite, log.memberUID.isEmpty else { return }
         let config = HKWorkoutConfiguration()
         config.activityType = activity
         let builder = HKWorkoutBuilder(healthStore: store, configuration: config, device: .local())
@@ -290,6 +302,7 @@ final class HealthKitManager: ObservableObject {
 
     /// Most recent heart-rate sample within the last 2 minutes (streamed by Apple Watch during workouts).
     func liveHeartRate() async -> Int {
+        guard isAvailable, Member.isMe else { return 0 }
         let descriptor = HKSampleQueryDescriptor(
             predicates: [.quantitySample(type: HKQuantityType(.heartRate),
                                          predicate: HKQuery.predicateForSamples(withStart: .now.addingTimeInterval(-120), end: .now))],

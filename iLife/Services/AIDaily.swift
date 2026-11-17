@@ -138,15 +138,15 @@ enum AIContext {
         let hkWater = map(await health.dailySeries(.dietaryWater, unit: .liter(), days: span))
         let sleep = map(await health.sleepSeries(days: min(span, 14)))
 
-        let profile = (try? ctx.fetch(FetchDescriptor<HealthProfile>()))?.first ?? HealthProfile()
-        let foods = (try? ctx.fetch(FetchDescriptor<FoodEntry>())) ?? []
-        let waters = (try? ctx.fetch(FetchDescriptor<WaterEntry>())) ?? []
-        let logs = (try? ctx.fetch(FetchDescriptor<WorkoutLog>())) ?? []
-        let scans = ((try? ctx.fetch(FetchDescriptor<InBodyScan>())) ?? []).sorted { $0.date > $1.date }
-        let measures = ((try? ctx.fetch(FetchDescriptor<BodyMeasurement>())) ?? []).sorted { $0.date > $1.date }
-        let supplements = (try? ctx.fetch(FetchDescriptor<Supplement>())) ?? []
-        let doses = (try? ctx.fetch(FetchDescriptor<SupplementDose>())) ?? []
-        let plans = (try? ctx.fetch(FetchDescriptor<WorkoutPlan>())) ?? []
+        let profile = ((try? ctx.fetch(FetchDescriptor<HealthProfile>())) ?? []).mine.first ?? HealthProfile()
+        let foods = ((try? ctx.fetch(FetchDescriptor<FoodEntry>())) ?? []).mine
+        let waters = ((try? ctx.fetch(FetchDescriptor<WaterEntry>())) ?? []).mine
+        let logs = ((try? ctx.fetch(FetchDescriptor<WorkoutLog>())) ?? []).mine
+        let scans = ((try? ctx.fetch(FetchDescriptor<InBodyScan>())) ?? []).mine.sorted { $0.date > $1.date }
+        let measures = ((try? ctx.fetch(FetchDescriptor<BodyMeasurement>())) ?? []).mine.sorted { $0.date > $1.date }
+        let supplements = ((try? ctx.fetch(FetchDescriptor<Supplement>())) ?? []).mine
+        let doses = ((try? ctx.fetch(FetchDescriptor<SupplementDose>())) ?? []).mine
+        let plans = ((try? ctx.fetch(FetchDescriptor<WorkoutPlan>())) ?? []).mine
 
         func foodsOn(_ d: Date) -> [FoodEntry] { foods.filter { cal.isDate($0.date, inSameDayAs: d) } }
         func logsOn(_ d: Date) -> [WorkoutLog] { logs.filter { cal.isDate($0.start, inSameDayAs: d) } }
@@ -186,6 +186,18 @@ enum AIContext {
         if let dob = profile.dateOfBirth, let age = cal.dateComponents([.year], from: dob, to: .now).year { person.append("age \(age)") }
         if s.weightKg > 0 { person.append("weight \(s.weightKg) kg") }
         if !person.isEmpty { lines.append("PERSON: " + person.joined(separator: ", ")) }
+        if !profile.memberUID.isEmpty {
+            var who = "WHO THIS IS: the app owner's \(profile.relation.isEmpty ? "family member" : profile.relation.lowercased())"
+            if !profile.firstName.isEmpty { who += " \(profile.firstName)" }
+            who += " — address them by name, not as the app owner. No Apple Watch / Apple Health data for them; only what was logged by hand."
+            if let dob = profile.dateOfBirth, let age = cal.dateComponents([.year], from: dob, to: .now).year, age < 18 {
+                who += " This is a CHILD (\(age) y): keep advice age-appropriate and gentle, no calorie restriction or weight-loss targets, and defer to their paediatrician."
+            }
+            lines.append(who)
+        }
+        if !profile.allergies.trimmingCharacters(in: .whitespaces).isEmpty {
+            lines.append("ALLERGIES (never suggest foods containing these): \(profile.allergies)")
+        }
         if let scan = scans.first {
             var ib = "LATEST INBODY (\(scan.date.formatted(date: .abbreviated, time: .omitted))): weight \(scan.weightKg) kg, skeletal muscle \(scan.skeletalMuscleKg) kg"
             ib += ", body fat \(scan.bodyFatPercent)% (\(scan.bodyFatKg) kg), BMI \(scan.bmi), visceral fat \(scan.visceralFatLevel)"
@@ -215,8 +227,8 @@ enum AIContext {
                 lines.append("    - \(ex): \(detail)")
             }
         }
-        let meds = ((try? ctx.fetch(FetchDescriptor<MeditationLog>())) ?? []).filter { cal.isDate($0.date, inSameDayAs: d0) }
-        let medWeek = ((try? ctx.fetch(FetchDescriptor<MeditationLog>())) ?? []).filter { $0.date >= week[0] && $0.date < d1 }
+        let meds = ((try? ctx.fetch(FetchDescriptor<MeditationLog>())) ?? []).mine.filter { cal.isDate($0.date, inSameDayAs: d0) }
+        let medWeek = ((try? ctx.fetch(FetchDescriptor<MeditationLog>())) ?? []).mine.filter { $0.date >= week[0] && $0.date < d1 }
         var medLine = "MEDITATION — "
         if meds.isEmpty { medLine += "none this day" }
         for (k, m) in meds.enumerated() {
@@ -238,8 +250,8 @@ enum AIContext {
         }
 
         if UserDefaults.standard.bool(forKey: "aiShareMedical") {
-            let mlist = ((try? ctx.fetch(FetchDescriptor<Medication>())) ?? []).filter(\.isCurrent)
-            let mdoses = ((try? ctx.fetch(FetchDescriptor<MedicationDose>())) ?? []).filter { cal.isDate($0.day, inSameDayAs: d0) }
+            let mlist = ((try? ctx.fetch(FetchDescriptor<Medication>())) ?? []).mine.filter(\.isCurrent)
+            let mdoses = ((try? ctx.fetch(FetchDescriptor<MedicationDose>())) ?? []).mine.filter { cal.isDate($0.day, inSameDayAs: d0) }
             if !mlist.isEmpty {
                 lines.append("PRESCRIBED MEDICINES (doctor's plan — never suggest changing doses):")
                 for m in mlist {
@@ -250,11 +262,11 @@ enum AIContext {
                     lines.append(l)
                 }
             }
-            let inj = ((try? ctx.fetch(FetchDescriptor<Injury>())) ?? []).filter { $0.status != "Healed" }
+            let inj = ((try? ctx.fetch(FetchDescriptor<Injury>())) ?? []).mine.filter { $0.status != "Healed" }
             for i in inj {
                 lines.append("ACTIVE INJURY — \(i.title) (\(i.bodyPart), \(i.severity), \(i.status)); treatment: \(i.procedures.joined(separator: ", "))" + (i.restrictions.isEmpty ? "" : "; restrictions: \(i.restrictions)"))
             }
-            let ev = ((try? ctx.fetch(FetchDescriptor<HealthEvent>())) ?? []).filter { $0.status != "Recovered" }
+            let ev = ((try? ctx.fetch(FetchDescriptor<HealthEvent>())) ?? []).mine.filter { $0.status != "Recovered" }
             for e in ev { lines.append("HEALTH CONDITION — \(e.title) (\(e.kind), \(e.status))" + (e.notes.isEmpty ? "" : "; notes: \(e.notes.prefix(200))")) }
         }
 
@@ -316,7 +328,7 @@ final class AICoordinator: ObservableObject {
     }
 
     private func stored(day: Date, kind: String, in ctx: ModelContext) -> DailyReview? {
-        let all = (try? ctx.fetch(FetchDescriptor<DailyReview>())) ?? []
+        let all = ((try? ctx.fetch(FetchDescriptor<DailyReview>())) ?? []).mine
         return all.filter { $0.kind == kind && Calendar.current.isDate($0.day, inSameDayAs: day) }.max { $0.createdAt < $1.createdAt }
     }
 
@@ -340,7 +352,7 @@ final class AICoordinator: ObservableObject {
 
     /// Called whenever the app comes to the front. Decides whether a plan or review is due — never more than one of each per day.
     func appBecameActive() async {
-        guard ai.isOn, let container, working == nil else { return }
+        guard ai.isOn, Member.isMe, let container, working == nil else { return }
         loadToday()
         let ctx = ModelContext(container)
         let cal = Calendar.current
@@ -364,8 +376,8 @@ final class AICoordinator: ObservableObject {
 
     private func hasData(on day: Date, in ctx: ModelContext) -> Bool {
         let cal = Calendar.current
-        let foods = (try? ctx.fetch(FetchDescriptor<FoodEntry>())) ?? []
-        let logs = (try? ctx.fetch(FetchDescriptor<WorkoutLog>())) ?? []
+        let foods = ((try? ctx.fetch(FetchDescriptor<FoodEntry>())) ?? []).mine
+        let logs = ((try? ctx.fetch(FetchDescriptor<WorkoutLog>())) ?? []).mine
         return foods.contains { cal.isDate($0.date, inSameDayAs: day) } || logs.contains { cal.isDate($0.start, inSameDayAs: day) }
     }
 
@@ -388,8 +400,8 @@ final class AICoordinator: ObservableObject {
         let ctx = ModelContext(container)
         let cal = Calendar.current
         let yesterday = cal.date(byAdding: .day, value: -1, to: today)!
-        let (yText, _) = await AIContext.build(day: yesterday, context: ctx, health: HealthKitManager.shared)
-        let (tText, stats) = await AIContext.build(day: today, context: ctx, health: HealthKitManager.shared)
+        let (yText, _) = await AIContext.build(day: yesterday, context: ctx, health: Member.isMe ? HealthKitManager.shared : HealthKitManager.blank)
+        let (tText, stats) = await AIContext.build(day: today, context: ctx, health: Member.isMe ? HealthKitManager.shared : HealthKitManager.blank)
         let lastReview = stored(day: yesterday, kind: "night", in: ctx)?.headline ?? ""
 
         let system = """
@@ -441,7 +453,7 @@ final class AICoordinator: ObservableObject {
         working = "night"; error = nil
         defer { working = nil }
         let ctx = ModelContext(container)
-        let (text, stats) = await AIContext.build(day: day, context: ctx, health: HealthKitManager.shared)
+        let (text, stats) = await AIContext.build(day: day, context: ctx, health: Member.isMe ? HealthKitManager.shared : HealthKitManager.blank)
         let isToday = Calendar.current.isDateInToday(day)
 
         let system = """

@@ -3,10 +3,10 @@ import SwiftData
 import Charts
 
 struct HealthHubView: View {
-    @Query(sort: \InBodyScan.date, order: .reverse) private var scans: [InBodyScan]
-    @Query private var docs: [MedicalDocument]
-    @Query private var contacts: [EmergencyContact]
-    @Query(sort: \ProgressPhoto.date, order: .reverse) private var progress: [ProgressPhoto]
+    @MemberQuery(sort: \InBodyScan.date, order: .reverse) private var scans: [InBodyScan]
+    @MemberQuery private var docs: [MedicalDocument]
+    @MemberQuery private var contacts: [EmergencyContact]
+    @MemberQuery(sort: \ProgressPhoto.date, order: .reverse) private var progress: [ProgressPhoto]
     @State private var showImport = false
 
     var body: some View {

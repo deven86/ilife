@@ -9,15 +9,15 @@ enum ReportBuilder {
     static func day(_ day: Date, context ctx: ModelContext) async -> DayReportData {
         let cal = Calendar.current
         let d0 = cal.startOfDay(for: day)
-        let (_, stats) = await AIContext.build(day: d0, context: ctx, health: HealthKitManager.shared)
-        let foods = ((try? ctx.fetch(FetchDescriptor<FoodEntry>())) ?? []).filter { cal.isDate($0.date, inSameDayAs: d0) }.sorted { $0.date < $1.date }
-        let logs = ((try? ctx.fetch(FetchDescriptor<WorkoutLog>())) ?? []).filter { cal.isDate($0.start, inSameDayAs: d0) }.sorted { $0.start < $1.start }
-        let meds = ((try? ctx.fetch(FetchDescriptor<MeditationLog>())) ?? []).filter { cal.isDate($0.date, inSameDayAs: d0) }
-        let doses = ((try? ctx.fetch(FetchDescriptor<SupplementDose>())) ?? []).filter { cal.isDate($0.day, inSameDayAs: d0) }
-        let sups = ((try? ctx.fetch(FetchDescriptor<Supplement>())) ?? []).filter { $0.isDue(on: d0) }
+        let (_, stats) = await AIContext.build(day: d0, context: ctx, health: Member.isMe ? HealthKitManager.shared : HealthKitManager.blank)
+        let foods = ((try? ctx.fetch(FetchDescriptor<FoodEntry>())) ?? []).mine.filter { cal.isDate($0.date, inSameDayAs: d0) }.sorted { $0.date < $1.date }
+        let logs = ((try? ctx.fetch(FetchDescriptor<WorkoutLog>())) ?? []).mine.filter { cal.isDate($0.start, inSameDayAs: d0) }.sorted { $0.start < $1.start }
+        let meds = ((try? ctx.fetch(FetchDescriptor<MeditationLog>())) ?? []).mine.filter { cal.isDate($0.date, inSameDayAs: d0) }
+        let doses = ((try? ctx.fetch(FetchDescriptor<SupplementDose>())) ?? []).mine.filter { cal.isDate($0.day, inSameDayAs: d0) }
+        let sups = ((try? ctx.fetch(FetchDescriptor<Supplement>())) ?? []).mine.filter { $0.isDue(on: d0) }
             .map { s in (name: s.name, taken: doses.filter { $0.supplementUID == s.uid }.count, planned: s.doseSlots.count) }
-        let trainers = (try? ctx.fetch(FetchDescriptor<Trainer>())) ?? []
-        let reviews = ((try? ctx.fetch(FetchDescriptor<DailyReview>())) ?? []).filter { $0.kind == "night" && cal.isDate($0.day, inSameDayAs: d0) }
+        let trainers = ((try? ctx.fetch(FetchDescriptor<Trainer>())) ?? []).mine
+        let reviews = ((try? ctx.fetch(FetchDescriptor<DailyReview>())) ?? []).mine.filter { $0.kind == "night" && cal.isDate($0.day, inSameDayAs: d0) }
         let review = reviews.max { $0.createdAt < $1.createdAt }.flatMap { try? JSONDecoder().decode(NightReview.self, from: Data($0.payload.utf8)) }
         var data = DayReportData(day: d0, stats: stats, foods: foods, logs: logs, meditations: meds, supplements: sups, review: review)
         data.trainerNames = Dictionary(trainers.map { ($0.uid, $0.fullName) }, uniquingKeysWith: { a, _ in a })
@@ -51,7 +51,7 @@ struct DailyReportView: View {
         .navigationTitle("Daily Report")
         .toolbar {
             if let data {
-                ShareMenuButton(name: "iLife report \(data.day.formatted(date: .numeric, time: .omitted))", text: { data.text }) { DailyReportCard(data: data) }
+                ShareMenuButton(name: "iLife report \(Member.prefix(Member.current))\(data.day.formatted(date: .numeric, time: .omitted))", text: { data.text }) { DailyReportCard(data: data) }
             }
         }
         .task(id: Calendar.current.startOfDay(for: day)) {
@@ -209,9 +209,9 @@ struct ExportCenterView: View {
             for i in items where date(i) >= start && date(i) < end { sums[cal.startOfDay(for: date(i)), default: 0] += value(i) }
             return sums.map { DayValue(date: $0.key, value: $0.value) }.sorted { $0.date < $1.date }
         }
-        let foods = (try? context.fetch(FetchDescriptor<FoodEntry>())) ?? []
-        let logs = (try? context.fetch(FetchDescriptor<WorkoutLog>())) ?? []
-        let meds = (try? context.fetch(FetchDescriptor<MeditationLog>())) ?? []
+        let foods = ((try? context.fetch(FetchDescriptor<FoodEntry>())) ?? []).mine
+        let logs = ((try? context.fetch(FetchDescriptor<WorkoutLog>())) ?? []).mine
+        let meds = ((try? context.fetch(FetchDescriptor<MeditationLog>())) ?? []).mine
         r.kcal = perDay(foods, date: { $0.date }, value: { $0.calories })
         r.protein = perDay(foods, date: { $0.date }, value: { $0.protein })
         r.workoutMin = perDay(logs, date: { $0.start }, value: { $0.durationMinutes })
@@ -220,24 +220,24 @@ struct ExportCenterView: View {
         r.workouts = logs.filter { $0.start >= start && $0.start < end }.sorted { $0.start < $1.start }
         r.ptDays = r.workouts.ptDays().count
 
-        var w = ((try? context.fetch(FetchDescriptor<BodyMeasurement>())) ?? []).filter { $0.weightKg > 0 }.map { DayValue(date: $0.date, value: $0.weightKg) }
-        w += ((try? context.fetch(FetchDescriptor<InBodyScan>())) ?? []).filter { $0.weightKg > 0 }.map { DayValue(date: $0.date, value: $0.weightKg) }
+        var w = ((try? context.fetch(FetchDescriptor<BodyMeasurement>())) ?? []).mine.filter { $0.weightKg > 0 }.map { DayValue(date: $0.date, value: $0.weightKg) }
+        w += ((try? context.fetch(FetchDescriptor<InBodyScan>())) ?? []).mine.filter { $0.weightKg > 0 }.map { DayValue(date: $0.date, value: $0.weightKg) }
         if w.isEmpty { w = await health.dailySeries(.bodyMass, unit: .gramUnit(with: .kilo), days: back, average: true) }
         r.weight = w.filter { $0.date >= start && $0.date < end }.sorted { $0.date < $1.date }
 
-        let sups = (try? context.fetch(FetchDescriptor<Supplement>())) ?? []
-        let doses = (try? context.fetch(FetchDescriptor<SupplementDose>())) ?? []
+        let sups = ((try? context.fetch(FetchDescriptor<Supplement>())) ?? []).mine
+        let doses = ((try? context.fetch(FetchDescriptor<SupplementDose>())) ?? []).mine
         for offset in 0..<days {
             let d = cal.date(byAdding: .day, value: offset, to: start)!
             r.dosePlanned += sups.filter { $0.isDue(on: d) }.reduce(0) { $0 + $1.doseSlots.count }
         }
         r.doseTaken = doses.filter { $0.day >= start && $0.day < end }.count
-        let p = (try? context.fetch(FetchDescriptor<HealthProfile>()))?.first
+        let p = ((try? context.fetch(FetchDescriptor<HealthProfile>())) ?? []).mine.first
         r.kcalGoal = p?.calorieIntakeGoal ?? 0; r.proteinGoal = p?.proteinGoal ?? 0; r.stepGoal = p?.stepGoal ?? 0
         return r
     }
 
-    private var fileTag: String { "\(start.formatted(.iso8601.year().month().day())) to \(Calendar.current.startOfDay(for: to).formatted(.iso8601.year().month().day()))" }
+    private var fileTag: String { (Member.isMe ? "" : "\(Member.name(Member.current)) ") + "\(start.formatted(.iso8601.year().month().day())) to \(Calendar.current.startOfDay(for: to).formatted(.iso8601.year().month().day()))" }
 
     private func sharePDF() async {
         working = true
@@ -261,9 +261,9 @@ struct ExportCenterView: View {
         func add(_ name: String, _ header: [String], _ rows: [[Any?]]) {
             if let u = Exporter.file(CSV.table(header, rows), name: "iLife \(name) \(fileTag).csv") { files.append(u) }
         }
-        let trainers = (try? context.fetch(FetchDescriptor<Trainer>())) ?? []
+        let trainers = ((try? context.fetch(FetchDescriptor<Trainer>())) ?? []).mine
         let tName = Dictionary(trainers.map { ($0.uid, $0.fullName) }, uniquingKeysWith: { a, _ in a })
-        let logs = ((try? context.fetch(FetchDescriptor<WorkoutLog>())) ?? []).filter { inRange($0.start) }.sorted { $0.start < $1.start }
+        let logs = ((try? context.fetch(FetchDescriptor<WorkoutLog>())) ?? []).mine.filter { inRange($0.start) }.sorted { $0.start < $1.start }
 
         if include.contains("Workouts") {
             add("workouts", ["start", "name", "type", "minutes", "kcal", "avg_hr", "session", "trainer", "source", "exercises", "notes"],
@@ -275,65 +275,65 @@ struct ExportCenterView: View {
             add("exercise sets", ["workout_start", "workout", "exercise", "set", "reps", "kg", "minutes", "km"], rows)
         }
         if include.contains("Food") {
-            let f = ((try? context.fetch(FetchDescriptor<FoodEntry>())) ?? []).filter { inRange($0.date) }.sorted { $0.date < $1.date }
+            let f = ((try? context.fetch(FetchDescriptor<FoodEntry>())) ?? []).mine.filter { inRange($0.date) }.sorted { $0.date < $1.date }
             add("food", ["time", "meal", "food", "quantity", "kcal", "protein_g", "carbs_g", "fat_g"], f.map { [$0.date, $0.meal.title, $0.name, $0.quantity, $0.calories, $0.protein, $0.carbs, $0.fat] })
         }
         if include.contains("Water") {
-            let w = ((try? context.fetch(FetchDescriptor<WaterEntry>())) ?? []).filter { inRange($0.date) }.sorted { $0.date < $1.date }
+            let w = ((try? context.fetch(FetchDescriptor<WaterEntry>())) ?? []).mine.filter { inRange($0.date) }.sorted { $0.date < $1.date }
             add("water", ["time", "ml"], w.map { [$0.date, $0.millilitres] })
         }
         if include.contains("Meditation") {
-            let m = ((try? context.fetch(FetchDescriptor<MeditationLog>())) ?? []).filter { inRange($0.date) }.sorted { $0.date < $1.date }
+            let m = ((try? context.fetch(FetchDescriptor<MeditationLog>())) ?? []).mine.filter { inRange($0.date) }.sorted { $0.date < $1.date }
             add("meditation", ["time", "session", "category", "minutes", "language", "sound", "mood_before", "mood_after", "completed"],
                 m.map { [$0.date, $0.title, $0.category, $0.minutes, $0.language, $0.soundscape, $0.moodBefore, $0.moodAfter, $0.completed] })
         }
         if include.contains("Supplements") {
-            let sups = (try? context.fetch(FetchDescriptor<Supplement>())) ?? []
+            let sups = ((try? context.fetch(FetchDescriptor<Supplement>())) ?? []).mine
             let byID = Dictionary(sups.map { ($0.uid, $0) }, uniquingKeysWith: { a, _ in a })
             add("supplements", ["name", "company", "dose", "schedule", "times", "start", "weeks", "suggested_by", "by_name", "purpose", "paused"],
                 sups.map { [$0.name, $0.company, $0.dose, $0.scheduleText, $0.doseSlots.map(\.rawValue).joined(separator: "; "), $0.startDate, $0.weeks, $0.suggestedBy, $0.suggestedByName, $0.purpose, $0.isPaused] })
-            let d = ((try? context.fetch(FetchDescriptor<SupplementDose>())) ?? []).filter { inRange($0.day) }.sorted { $0.takenAt < $1.takenAt }
+            let d = ((try? context.fetch(FetchDescriptor<SupplementDose>())) ?? []).mine.filter { inRange($0.day) }.sorted { $0.takenAt < $1.takenAt }
             add("supplement doses", ["day", "supplement", "when", "ticked_at"], d.map { [$0.day, byID[$0.supplementUID]?.name ?? "", $0.slot, $0.takenAt] })
         }
         if include.contains("Medicines") {
-            let meds = (try? context.fetch(FetchDescriptor<Medication>())) ?? []
+            let meds = ((try? context.fetch(FetchDescriptor<Medication>())) ?? []).mine
             let byID = Dictionary(meds.map { ($0.uid, $0) }, uniquingKeysWith: { a, _ in a })
             add("medicines", ["name", "strength", "type", "dose", "schedule", "start", "end", "cause", "doctor", "hospital", "instructions", "paused"],
                 meds.map { [$0.name, $0.strength, $0.form.rawValue, $0.dose, $0.scheduleText, $0.startDate, $0.endDate, $0.cause, $0.doctorName, $0.hospital, $0.instructions, $0.isPaused] })
-            let d = ((try? context.fetch(FetchDescriptor<MedicationDose>())) ?? []).filter { inRange($0.day) }.sorted { $0.takenAt < $1.takenAt }
+            let d = ((try? context.fetch(FetchDescriptor<MedicationDose>())) ?? []).mine.filter { inRange($0.day) }.sorted { $0.takenAt < $1.takenAt }
             add("medicine doses", ["day", "medicine", "when", "ticked_at"], d.map { [$0.day, byID[$0.medicationUID]?.displayName ?? "", $0.slot, $0.takenAt] })
         }
         if include.contains("Injuries & health events") {
-            let atts = (try? context.fetch(FetchDescriptor<MedicalAttachment>())) ?? []
+            let atts = ((try? context.fetch(FetchDescriptor<MedicalAttachment>())) ?? []).mine
             func cost(_ id: String) -> Double { atts.filter { $0.ownerUID == id && $0.kind == "Bill" }.reduce(0) { $0 + $1.amount } }
-            let inj = ((try? context.fetch(FetchDescriptor<Injury>())) ?? []).sorted { $0.date < $1.date }
+            let inj = ((try? context.fetch(FetchDescriptor<Injury>())) ?? []).mine.sorted { $0.date < $1.date }
             add("injuries", ["date", "injury", "body_part", "severity", "how", "treatment", "details", "doctor", "hospital", "admitted", "discharged", "status", "healed", "restrictions", "bills_inr"],
                 inj.map { [$0.date, $0.title, $0.bodyPart, $0.severity, $0.howItHappened, $0.procedures.joined(separator: "; "), $0.procedureNotes, $0.doctorName, $0.hospital, $0.admitDate, $0.dischargeDate, $0.status, $0.healedDate, $0.restrictions, cost($0.uid)] })
-            let ev = ((try? context.fetch(FetchDescriptor<HealthEvent>())) ?? []).sorted { $0.date < $1.date }
+            let ev = ((try? context.fetch(FetchDescriptor<HealthEvent>())) ?? []).mine.sorted { $0.date < $1.date }
             add("health events", ["date", "ended", "name", "type", "diagnosis", "procedure", "doctor", "speciality", "hospital", "admitted", "discharged", "status", "follow_up", "bills_inr", "notes"],
                 ev.map { [$0.date, $0.endDate, $0.title, $0.kind, $0.diagnosis, $0.procedure, $0.doctorName, $0.specialty, $0.hospital, $0.admitDate, $0.dischargeDate, $0.status, $0.followUp, cost($0.uid), $0.notes] })
         }
         if include.contains("Weight & measurements") {
-            let m = ((try? context.fetch(FetchDescriptor<BodyMeasurement>())) ?? []).filter { inRange($0.date) }.sorted { $0.date < $1.date }
+            let m = ((try? context.fetch(FetchDescriptor<BodyMeasurement>())) ?? []).mine.filter { inRange($0.date) }.sorted { $0.date < $1.date }
             add("weight and measurements", ["date", "weight_kg", "waist_cm", "chest_cm", "hips_cm", "arm_cm", "thigh_cm", "neck_cm", "note"],
                 m.map { [$0.date, $0.weightKg, $0.waistCm, $0.chestCm, $0.hipsCm, $0.armCm, $0.thighCm, $0.neckCm, $0.note] })
         }
         if include.contains("InBody") {
-            let s = ((try? context.fetch(FetchDescriptor<InBodyScan>())) ?? []).filter { inRange($0.date) }.sorted { $0.date < $1.date }
+            let s = ((try? context.fetch(FetchDescriptor<InBodyScan>())) ?? []).mine.filter { inRange($0.date) }.sorted { $0.date < $1.date }
             add("inbody", ["date", "weight_kg", "skeletal_muscle_kg", "body_fat_kg", "body_fat_pct", "bmi", "body_water_l", "visceral_fat", "bmr_kcal", "score", "summary"],
                 s.map { [$0.date, $0.weightKg, $0.skeletalMuscleKg, $0.bodyFatKg, $0.bodyFatPercent, $0.bmi, $0.totalBodyWaterL, $0.visceralFatLevel, $0.bmrKcal, $0.inBodyScore, $0.aiSummary] })
         }
         if include.contains("Payments") {
-            let p = ((try? context.fetch(FetchDescriptor<GymPayment>())) ?? []).filter { inRange($0.date) }.sorted { $0.date < $1.date }
+            let p = ((try? context.fetch(FetchDescriptor<GymPayment>())) ?? []).mine.filter { inRange($0.date) }.sorted { $0.date < $1.date }
             add("payments", ["date", "for", "amount_inr", "method", "trainer", "sessions", "reference", "notes"],
                 p.map { [$0.date, $0.kind.rawValue, $0.amount, $0.method, tName[$0.trainerID] ?? "", $0.sessionsIncluded, $0.reference, $0.notes] })
         }
         if include.contains("Expenses") {
-            let e = ((try? context.fetch(FetchDescriptor<Expense>())) ?? []).filter { inRange($0.date) }.sorted { $0.date < $1.date }
+            let e = ((try? context.fetch(FetchDescriptor<Expense>())) ?? []).mine.filter { inRange($0.date) }.sorted { $0.date < $1.date }
             add("expenses", ["date", "category", "item", "amount_inr", "shop", "quantity", "notes"], e.map { [$0.date, $0.category.rawValue, $0.title, $0.amount, $0.vendor, $0.quantity, $0.notes] })
         }
         if include.contains("AI reviews") {
-            let r = ((try? context.fetch(FetchDescriptor<DailyReview>())) ?? []).filter { inRange($0.day) }.sorted { $0.day < $1.day }
+            let r = ((try? context.fetch(FetchDescriptor<DailyReview>())) ?? []).mine.filter { inRange($0.day) }.sorted { $0.day < $1.day }
             add("ai reviews", ["day", "type", "score", "headline"], r.map { [$0.day, $0.kind == "night" ? "Night review" : "Morning plan", $0.overallScore, $0.headline] })
         }
         guard !files.isEmpty else { return }

@@ -9,7 +9,7 @@ struct LinkedMedicinesSection: View {
     let cause: String
     let doctor: String
     let hospital: String
-    @Query(sort: \Medication.startDate, order: .reverse) private var meds: [Medication]
+    @MemberQuery(sort: \Medication.startDate, order: .reverse) private var meds: [Medication]
     @State private var editing: Medication?
     @State private var adding = false
 
@@ -66,8 +66,8 @@ struct HospitalStayFields: View {
 // MARK: - Injuries
 
 struct InjuryListView: View {
-    @Query(sort: \Injury.date, order: .reverse) private var injuries: [Injury]
-    @Query private var attachments: [MedicalAttachment]
+    @MemberQuery(sort: \Injury.date, order: .reverse) private var injuries: [Injury]
+    @MemberQuery private var attachments: [MedicalAttachment]
     @State private var editing: Injury?
     @State private var adding = false
 
@@ -262,8 +262,8 @@ struct InjuryEditor: View {
 // MARK: - Major health events
 
 struct HealthEventListView: View {
-    @Query(sort: \HealthEvent.date, order: .reverse) private var events: [HealthEvent]
-    @Query private var attachments: [MedicalAttachment]
+    @MemberQuery(sort: \HealthEvent.date, order: .reverse) private var events: [HealthEvent]
+    @MemberQuery private var attachments: [MedicalAttachment]
     @State private var editing: HealthEvent?
     @State private var adding = false
 
@@ -418,7 +418,8 @@ struct HealthEventEditor: View {
         try? context.save()
         if hasFollowUp && followUp > .now {
             let c = UNMutableNotificationContent()
-            c.title = "Follow-up: \(e.title)"
+            c.title = "Follow-up: " + Member.prefix(e.memberUID) + e.title
+            c.userInfo["member"] = e.memberUID
             c.body = [doctor.isEmpty ? nil : "Dr. \(doctor)", hospital.isEmpty ? nil : hospital].compactMap { $0 }.joined(separator: " · ")
             c.sound = .default
             let when = followUp.addingTimeInterval(-2 * 3600)
@@ -457,10 +458,10 @@ struct HealthEventEditor: View {
 // MARK: - Medical card on the Health tab
 
 struct MedicalHubCard: View {
-    @Query private var meds: [Medication]
-    @Query private var injuries: [Injury]
-    @Query private var events: [HealthEvent]
-    @Query private var attachments: [MedicalAttachment]
+    @MemberQuery private var meds: [Medication]
+    @MemberQuery private var injuries: [Injury]
+    @MemberQuery private var events: [HealthEvent]
+    @MemberQuery private var attachments: [MedicalAttachment]
 
     var body: some View {
         let activeMeds = meds.filter(\.isCurrent).count

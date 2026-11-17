@@ -5,11 +5,11 @@ import HealthKit
 
 struct TrendsView: View {
     @EnvironmentObject var health: HealthKitManager
-    @Query(sort: \FoodEntry.date) private var foods: [FoodEntry]
-    @Query(sort: \WorkoutLog.start) private var logs: [WorkoutLog]
-    @Query(sort: \InBodyScan.date) private var scans: [InBodyScan]
-    @Query(sort: \BodyMeasurement.date) private var measurements: [BodyMeasurement]
-    @Query private var profiles: [HealthProfile]
+    @MemberQuery(sort: \FoodEntry.date) private var foods: [FoodEntry]
+    @MemberQuery(sort: \WorkoutLog.start) private var logs: [WorkoutLog]
+    @MemberQuery(sort: \InBodyScan.date) private var scans: [InBodyScan]
+    @MemberQuery(sort: \BodyMeasurement.date) private var measurements: [BodyMeasurement]
+    @MemberQuery private var profiles: [HealthProfile]
 
     @State private var days = 30
     @State private var steps: [DayValue] = []
@@ -175,10 +175,10 @@ struct TrendCard: View {
 // MARK: - Achievements
 
 struct AchievementsView: View {
-    @Query private var logs: [WorkoutLog]
-    @Query private var photos: [ProgressPhoto]
-    @Query private var scans: [InBodyScan]
-    @Query private var foods: [FoodEntry]
+    @MemberQuery private var logs: [WorkoutLog]
+    @MemberQuery private var photos: [ProgressPhoto]
+    @MemberQuery private var scans: [InBodyScan]
+    @MemberQuery private var foods: [FoodEntry]
     @EnvironmentObject var health: HealthKitManager
     @EnvironmentObject var theme: ThemeManager
     @State private var bestSteps = 0.0
@@ -243,7 +243,7 @@ struct WeightLogSheet: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var health: HealthKitManager
-    @Query(sort: \BodyMeasurement.date, order: .reverse) private var history: [BodyMeasurement]
+    @MemberQuery(sort: \BodyMeasurement.date, order: .reverse) private var history: [BodyMeasurement]
     @State private var date = Date.now
     @State private var weight = ""
     @State private var waist = ""

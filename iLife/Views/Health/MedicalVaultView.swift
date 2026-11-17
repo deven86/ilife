@@ -7,7 +7,7 @@ import QuickLook
 struct MedicalVaultView: View {
     let kind: MedicalDocKind
     @Environment(\.modelContext) private var context
-    @Query(sort: \MedicalDocument.date, order: .reverse) private var all: [MedicalDocument]
+    @MemberQuery(sort: \MedicalDocument.date, order: .reverse) private var all: [MedicalDocument]
     @State private var showAdd = false
     @State private var previewURL: URL?
 

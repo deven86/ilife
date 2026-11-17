@@ -9,7 +9,7 @@ import CoreTransferable
 struct TransformationView: View {
     @Environment(\.modelContext) private var context
     @EnvironmentObject var health: HealthKitManager
-    @Query(sort: \ProgressPhoto.date, order: .reverse) private var photos: [ProgressPhoto]
+    @MemberQuery(sort: \ProgressPhoto.date, order: .reverse) private var photos: [ProgressPhoto]
 
     @State private var pose = "All"
     @State private var showCapture = false

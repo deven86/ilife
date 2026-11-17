@@ -52,6 +52,8 @@ enum MealType: String, Codable, CaseIterable, Identifiable {
 }
 
 @Model final class FoodEntry {
+    /// Family member this belongs to ("" = you).
+    var memberUID: String = ""
     var name: String = ""
     var mealRaw: String = MealType.breakfast.rawValue
     var calories: Double = 0
@@ -68,20 +70,25 @@ enum MealType: String, Codable, CaseIterable, Identifiable {
     }
 
     init(name: String, meal: MealType, calories: Double, protein: Double, carbs: Double, fat: Double, quantity: String = "", date: Date = .now) {
+        memberUID = Member.current
         self.name = name; self.mealRaw = meal.rawValue; self.calories = calories
         self.protein = protein; self.carbs = carbs; self.fat = fat; self.quantity = quantity; self.date = date
     }
 }
 
 @Model final class WaterEntry {
+    /// Family member this belongs to ("" = you).
+    var memberUID: String = ""
     var millilitres: Double = 250
     var date: Date = Date.now
-    init(millilitres: Double, date: Date = .now) { self.millilitres = millilitres; self.date = date }
+    init(millilitres: Double, date: Date = .now) { memberUID = Member.current; self.millilitres = millilitres; self.date = date }
 }
 
 // MARK: - Workouts
 
 @Model final class WorkoutLog {
+    /// Family member this belongs to ("" = you).
+    var memberUID: String = ""
     var name: String = ""
     var category: String = "Strength"
     var start: Date = Date.now
@@ -105,6 +112,7 @@ enum MealType: String, Codable, CaseIterable, Identifiable {
     var isPT: Bool { sessionType == "Personal Training" }
 
     init(name: String, category: String, start: Date, durationMinutes: Double, calories: Double, avgHeartRate: Double = 0, source: String = "iLife", healthKitID: String = "") {
+        memberUID = Member.current
         self.name = name; self.category = category; self.start = start; self.durationMinutes = durationMinutes
         self.calories = calories; self.avgHeartRate = avgHeartRate; self.source = source; self.healthKitID = healthKitID
     }
@@ -124,6 +132,8 @@ enum MealType: String, Codable, CaseIterable, Identifiable {
 }
 
 @Model final class WorkoutPlan {
+    /// Family member this belongs to ("" = you).
+    var memberUID: String = ""
     var name: String = ""
     var focus: String = "Full Body"
     var level: String = "Intermediate"
@@ -135,6 +145,7 @@ enum MealType: String, Codable, CaseIterable, Identifiable {
     @Relationship(deleteRule: .cascade, inverse: \PlanExercise.plan) var exercises: [PlanExercise]? = []
 
     init(name: String, focus: String, level: String, estimatedMinutes: Int, weekdays: [Int]) {
+        memberUID = Member.current
         self.name = name; self.focus = focus; self.level = level
         self.estimatedMinutes = estimatedMinutes; self.weekdays = weekdays
     }
@@ -159,6 +170,8 @@ enum MealType: String, Codable, CaseIterable, Identifiable {
 // MARK: - Body composition (InBody)
 
 @Model final class InBodyScan {
+    /// Family member this belongs to ("" = you).
+    var memberUID: String = ""
     var date: Date = Date.now
     var weightKg: Double = 0
     var skeletalMuscleKg: Double = 0
@@ -189,7 +202,7 @@ enum MealType: String, Codable, CaseIterable, Identifiable {
     var aiSummary: String = ""
     @Attribute(.externalStorage) var image: Data?
 
-    init(date: Date = .now) { self.date = date }
+    init(date: Date = .now) { memberUID = Member.current; self.date = date }
 }
 
 // MARK: - Medical vault
@@ -208,6 +221,8 @@ enum MedicalDocKind: String, Codable, CaseIterable, Identifiable {
 }
 
 @Model final class MedicalDocument {
+    /// Family member this belongs to ("" = you).
+    var memberUID: String = ""
     var title: String = ""
     var kindRaw: String = MedicalDocKind.report.rawValue
     var date: Date = Date.now
@@ -222,6 +237,7 @@ enum MedicalDocKind: String, Codable, CaseIterable, Identifiable {
     }
 
     init(title: String, kind: MedicalDocKind, date: Date = .now, fileType: String, file: Data?) {
+        memberUID = Member.current
         self.title = title; self.kindRaw = kind.rawValue; self.date = date; self.fileType = fileType; self.file = file
     }
 }
@@ -229,16 +245,21 @@ enum MedicalDocKind: String, Codable, CaseIterable, Identifiable {
 // MARK: - Profile, emergency, goals, alarms
 
 @Model final class EmergencyContact {
+    /// Family member this belongs to ("" = you).
+    var memberUID: String = ""
     var name: String = ""
     var relation: String = ""
     var phone: String = ""
     var isPrimary: Bool = false
     init(name: String, relation: String, phone: String, isPrimary: Bool = false) {
+        memberUID = Member.current
         self.name = name; self.relation = relation; self.phone = phone; self.isPrimary = isPrimary
     }
 }
 
 @Model final class HealthProfile {
+    /// Family member this belongs to ("" = you).
+    var memberUID: String = ""
     var bloodGroup: String = ""
     var allergies: String = ""
     var conditions: String = ""
@@ -261,7 +282,13 @@ enum MedicalDocKind: String, Codable, CaseIterable, Identifiable {
     var dateOfBirth: Date?
     var gender: String = ""
     @Attribute(.externalStorage) var avatar: Data?
-    init() {}
+    // Family member details (unused for you)
+    var relation: String = ""
+    var ageOnly: Bool = false          // true when only the age (not the exact birthday) is known
+    var memberNotes: String = ""
+    var memberOrder: Int = 0
+    var created: Date = Date.now
+    init() { memberUID = Member.current }
 
     var fullName: String { [firstName, lastName].filter { !$0.isEmpty }.joined(separator: " ") }
 }
@@ -269,6 +296,8 @@ enum MedicalDocKind: String, Codable, CaseIterable, Identifiable {
 // MARK: - Transformation journey
 
 @Model final class ProgressPhoto {
+    /// Family member this belongs to ("" = you).
+    var memberUID: String = ""
     var date: Date = Date.now
     var pose: String = "Front"        // Front | Side | Back | Other
     var weightKg: Double = 0
@@ -279,6 +308,7 @@ enum MedicalDocKind: String, Codable, CaseIterable, Identifiable {
     var durationSeconds: Double = 0
     @Attribute(.externalStorage) var video: Data?
     init(date: Date = .now, pose: String, image: Data?, thumbnail: Data?) {
+        memberUID = Member.current
         self.date = date; self.pose = pose; self.image = image; self.thumbnail = thumbnail
     }
 }
@@ -346,6 +376,8 @@ enum ILifeSchema {
 // MARK: - Gym, trainers, money
 
 @Model final class GymMembership {
+    /// Family member this belongs to ("" = you).
+    var memberUID: String = ""
     var gymName: String = ""
     var branch: String = ""
     var address: String = ""
@@ -359,12 +391,14 @@ enum ILifeSchema {
     var longitude: Double = 0
     var notes: String = ""
     @Attribute(.externalStorage) var photo: Data?
-    init() {}
+    init() { memberUID = Member.current }
     var daysLeft: Int { Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: .now), to: endDate).day ?? 0 }
     var isActive: Bool { endDate >= Calendar.current.startOfDay(for: .now) }
 }
 
 @Model final class Trainer {
+    /// Family member this belongs to ("" = you).
+    var memberUID: String = ""
     var uid: String = UUID().uuidString
     var firstName: String = ""
     var lastName: String = ""
@@ -376,7 +410,7 @@ enum ILifeSchema {
     var priorSessions: Int = 0
     var notes: String = ""
     @Attribute(.externalStorage) var photo: Data?
-    init() {}
+    init() { memberUID = Member.current }
     var fullName: String { [firstName, lastName].filter { !$0.isEmpty }.joined(separator: " ") }
 }
 
@@ -393,6 +427,8 @@ enum PaymentKind: String, CaseIterable, Identifiable {
 }
 
 @Model final class GymPayment {
+    /// Family member this belongs to ("" = you).
+    var memberUID: String = ""
     var kindRaw: String = PaymentKind.membership.rawValue
     var amount: Double = 0
     var date: Date = Date.now
@@ -405,7 +441,7 @@ enum PaymentKind: String, CaseIterable, Identifiable {
     var notes: String = ""
     var billType: String = ""          // pdf | jpg
     @Attribute(.externalStorage) var bill: Data?
-    init() {}
+    init() { memberUID = Member.current }
     var kind: PaymentKind {
         get { PaymentKind(rawValue: kindRaw) ?? .other }
         set { kindRaw = newValue.rawValue }
@@ -432,6 +468,8 @@ enum ExpenseCategory: String, CaseIterable, Identifiable {
 }
 
 @Model final class Expense {
+    /// Family member this belongs to ("" = you).
+    var memberUID: String = ""
     var title: String = ""
     var categoryRaw: String = ExpenseCategory.other.rawValue
     var amount: Double = 0
@@ -444,7 +482,7 @@ enum ExpenseCategory: String, CaseIterable, Identifiable {
     @Attribute(.externalStorage) var photo: Data?
     /// Set when the expense was created from a medical bill (the attachment's uid).
     var sourceUID: String = ""
-    init() {}
+    init() { memberUID = Member.current }
     var category: ExpenseCategory {
         get { ExpenseCategory(rawValue: categoryRaw) ?? .other }
         set { categoryRaw = newValue.rawValue }
@@ -455,6 +493,8 @@ enum ExpenseCategory: String, CaseIterable, Identifiable {
 // MARK: - Body measurements & coach chat
 
 @Model final class BodyMeasurement {
+    /// Family member this belongs to ("" = you).
+    var memberUID: String = ""
     var date: Date = Date.now
     var weightKg: Double = 0
     var waistCm: Double = 0
@@ -464,14 +504,16 @@ enum ExpenseCategory: String, CaseIterable, Identifiable {
     var thighCm: Double = 0
     var neckCm: Double = 0
     var note: String = ""
-    init(date: Date = .now) { self.date = date }
+    init(date: Date = .now) { memberUID = Member.current; self.date = date }
 }
 
 @Model final class CoachMessage {
+    /// Family member this belongs to ("" = you).
+    var memberUID: String = ""
     var role: String = "user"      // user | assistant
     var text: String = ""
     var date: Date = Date.now
-    init(role: String, text: String) { self.role = role; self.text = text }
+    init(role: String, text: String) { memberUID = Member.current; self.role = role; self.text = text }
 }
 
 
@@ -522,6 +564,8 @@ enum DoseSlot: String, CaseIterable, Identifiable {
 }
 
 @Model final class Supplement {
+    /// Family member this belongs to ("" = you).
+    var memberUID: String = ""
     var uid: String = UUID().uuidString
     var name: String = ""
     var company: String = ""
@@ -539,7 +583,7 @@ enum DoseSlot: String, CaseIterable, Identifiable {
     var remind: Bool = true
     var isPaused: Bool = false
     @Attribute(.externalStorage) var photo: Data?
-    init() {}
+    init() { memberUID = Member.current }
 
     var doseSlots: [DoseSlot] { slots.compactMap(DoseSlot.init(rawValue:)).sorted { $0.order < $1.order } }
     var timesPerDay: Int { max(slots.count, 1) }
@@ -581,11 +625,14 @@ enum DoseSlot: String, CaseIterable, Identifiable {
 
 /// One dose ticked off.
 @Model final class SupplementDose {
+    /// Family member this belongs to ("" = you).
+    var memberUID: String = ""
     var supplementUID: String = ""
     var slot: String = ""
     var day: Date = Date.now          // start of the day it was for
     var takenAt: Date = Date.now
     init(supplementUID: String, slot: String, day: Date) {
+        memberUID = Member.current
         self.supplementUID = supplementUID; self.slot = slot; self.day = day
     }
 }
@@ -595,6 +642,8 @@ enum DoseSlot: String, CaseIterable, Identifiable {
 
 /// One AI-written morning plan or night review, kept so the history is always there (and never paid for twice).
 @Model final class DailyReview {
+    /// Family member this belongs to ("" = you).
+    var memberUID: String = ""
     var day: Date = Date.now              // start of the day it is about
     var kind: String = "night"            // morning | night
     var createdAt: Date = Date.now
@@ -605,7 +654,7 @@ enum DoseSlot: String, CaseIterable, Identifiable {
     /// The numbers the AI was shown (DayStats JSON) — lets history redraw the charts exactly as they were.
     var stats: String = ""
     var model: String = ""
-    init(day: Date, kind: String) { self.day = day; self.kind = kind }
+    init(day: Date, kind: String) { memberUID = Member.current; self.day = day; self.kind = kind }
 }
 
 // MARK: - Exercise explainer media (saved once per exercise)
@@ -638,6 +687,8 @@ extension Array where Element == WorkoutLog {
 // MARK: - Meditation
 
 @Model final class MeditationLog {
+    /// Family member this belongs to ("" = you).
+    var memberUID: String = ""
     var date: Date = Date.now
     var sessionID: String = ""
     var title: String = ""
@@ -650,6 +701,7 @@ extension Array where Element == WorkoutLog {
     var completed: Bool = true
     var note: String = ""
     init(date: Date = .now, sessionID: String, title: String, minutes: Double) {
+        memberUID = Member.current
         self.date = date; self.sessionID = sessionID; self.title = title; self.minutes = minutes
     }
 }
@@ -689,6 +741,8 @@ enum MedForm: String, CaseIterable, Identifiable {
 }
 
 @Model final class Medication {
+    /// Family member this belongs to ("" = you).
+    var memberUID: String = ""
     var uid: String = UUID().uuidString
     var name: String = ""
     var company: String = ""
@@ -712,7 +766,7 @@ enum MedForm: String, CaseIterable, Identifiable {
     var linkedUID: String = ""
     var linkedKind: String = ""          // injury | event
     @Attribute(.externalStorage) var photo: Data?
-    init() {}
+    init() { memberUID = Member.current }
 
     var form: MedForm {
         get { MedForm(rawValue: formRaw) ?? .other }
@@ -741,16 +795,21 @@ enum MedForm: String, CaseIterable, Identifiable {
 }
 
 @Model final class MedicationDose {
+    /// Family member this belongs to ("" = you).
+    var memberUID: String = ""
     var medicationUID: String = ""
     var slot: String = ""
     var day: Date = Date.now
     var takenAt: Date = Date.now
     init(medicationUID: String, slot: String, day: Date) {
+        memberUID = Member.current
         self.medicationUID = medicationUID; self.slot = slot; self.day = day
     }
 }
 
 @Model final class Injury {
+    /// Family member this belongs to ("" = you).
+    var memberUID: String = ""
     var uid: String = UUID().uuidString
     var title: String = ""
     var bodyPart: String = ""
@@ -768,10 +827,12 @@ enum MedForm: String, CaseIterable, Identifiable {
     var healedDate: Date?
     var restrictions: String = ""        // e.g. no squats for 3 weeks
     var notes: String = ""
-    init() {}
+    init() { memberUID = Member.current }
 }
 
 @Model final class HealthEvent {
+    /// Family member this belongs to ("" = you).
+    var memberUID: String = ""
     var uid: String = UUID().uuidString
     var title: String = ""
     var kind: String = "Illness"         // Illness / disease | Surgery / operation | Injury | Hospitalisation | Other
@@ -788,11 +849,13 @@ enum MedForm: String, CaseIterable, Identifiable {
     var status: String = "Under treatment"   // Under treatment | Recovered | Ongoing / chronic | Monitoring
     var followUp: Date?
     var notes: String = ""
-    init() {}
+    init() { memberUID = Member.current }
 }
 
 /// Photos, reports, prescriptions and bills attached to a medicine, injury or health event.
 @Model final class MedicalAttachment {
+    /// Family member this belongs to ("" = you).
+    var memberUID: String = ""
     var uid: String = UUID().uuidString
     var ownerUID: String = ""
     var ownerKind: String = ""           // medication | injury | event
@@ -804,6 +867,32 @@ enum MedForm: String, CaseIterable, Identifiable {
     @Attribute(.externalStorage) var data: Data?
     @Attribute(.externalStorage) var thumbnail: Data?
     init(ownerUID: String, ownerKind: String, kind: String) {
+        memberUID = Member.current
         self.ownerUID = ownerUID; self.ownerKind = ownerKind; self.kind = kind
     }
 }
+
+extension FoodEntry: MemberOwned {}
+extension WaterEntry: MemberOwned {}
+extension WorkoutLog: MemberOwned {}
+extension WorkoutPlan: MemberOwned {}
+extension InBodyScan: MemberOwned {}
+extension MedicalDocument: MemberOwned {}
+extension EmergencyContact: MemberOwned {}
+extension HealthProfile: MemberOwned {}
+extension ProgressPhoto: MemberOwned {}
+extension GymMembership: MemberOwned {}
+extension Trainer: MemberOwned {}
+extension GymPayment: MemberOwned {}
+extension Expense: MemberOwned {}
+extension BodyMeasurement: MemberOwned {}
+extension CoachMessage: MemberOwned {}
+extension Supplement: MemberOwned {}
+extension SupplementDose: MemberOwned {}
+extension DailyReview: MemberOwned {}
+extension MeditationLog: MemberOwned {}
+extension Medication: MemberOwned {}
+extension MedicationDose: MemberOwned {}
+extension Injury: MemberOwned {}
+extension HealthEvent: MemberOwned {}
+extension MedicalAttachment: MemberOwned {}

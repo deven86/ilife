@@ -228,12 +228,12 @@ struct CoachView: View {
     @EnvironmentObject var health: HealthKitManager
     @EnvironmentObject var theme: ThemeManager
     @ObservedObject private var ai = AIService.shared
-    @Query(sort: \CoachMessage.date) private var messages: [CoachMessage]
-    @Query(sort: \FoodEntry.date, order: .reverse) private var foods: [FoodEntry]
-    @Query(sort: \WorkoutLog.start, order: .reverse) private var logs: [WorkoutLog]
-    @Query(sort: \InBodyScan.date, order: .reverse) private var scans: [InBodyScan]
-    @Query(sort: \BodyMeasurement.date, order: .reverse) private var measurements: [BodyMeasurement]
-    @Query private var profiles: [HealthProfile]
+    @MemberQuery(sort: \CoachMessage.date) private var messages: [CoachMessage]
+    @MemberQuery(sort: \FoodEntry.date, order: .reverse) private var foods: [FoodEntry]
+    @MemberQuery(sort: \WorkoutLog.start, order: .reverse) private var logs: [WorkoutLog]
+    @MemberQuery(sort: \InBodyScan.date, order: .reverse) private var scans: [InBodyScan]
+    @MemberQuery(sort: \BodyMeasurement.date, order: .reverse) private var measurements: [BodyMeasurement]
+    @MemberQuery private var profiles: [HealthProfile]
     @State private var draft = ""
     @State private var thinking = false
     @State private var error: String?

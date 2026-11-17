@@ -532,7 +532,7 @@ struct WeekChart: View {
 
 struct AIHistoryView: View {
     @Environment(\.modelContext) private var context
-    @Query(sort: \DailyReview.day, order: .reverse) private var all: [DailyReview]
+    @MemberQuery(sort: \DailyReview.day, order: .reverse) private var all: [DailyReview]
 
     private var days: [Date] {
         var seen = Set<Date>()

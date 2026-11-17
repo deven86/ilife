@@ -8,29 +8,31 @@ struct HomeView: View {
     @Environment(\.modelContext) private var context
     @AppStorage("userName") private var userName = "Devendra"
 
-    @Query(sort: \FoodEntry.date, order: .reverse) private var foods: [FoodEntry]
-    @Query(sort: \WaterEntry.date, order: .reverse) private var waters: [WaterEntry]
-    @Query(sort: \WorkoutLog.start, order: .reverse) private var logs: [WorkoutLog]
-    @Query private var plans: [WorkoutPlan]
-    @Query private var profiles: [HealthProfile]
-    @Query(sort: \InBodyScan.date, order: .reverse) private var scans: [InBodyScan]
-    @Query(sort: \ProgressPhoto.date, order: .reverse) private var progress: [ProgressPhoto]
-    @Query(sort: \BodyMeasurement.date) private var measurements: [BodyMeasurement]
-    @Query private var memberships: [GymMembership]
-    @Query private var payments: [GymPayment]
-    @Query private var trainers: [Trainer]
+    @MemberQuery(sort: \FoodEntry.date, order: .reverse) private var foods: [FoodEntry]
+    @MemberQuery(sort: \WaterEntry.date, order: .reverse) private var waters: [WaterEntry]
+    @MemberQuery(sort: \WorkoutLog.start, order: .reverse) private var logs: [WorkoutLog]
+    @MemberQuery private var plans: [WorkoutPlan]
+    @MemberQuery private var profiles: [HealthProfile]
+    @MemberQuery(sort: \InBodyScan.date, order: .reverse) private var scans: [InBodyScan]
+    @MemberQuery(sort: \ProgressPhoto.date, order: .reverse) private var progress: [ProgressPhoto]
+    @MemberQuery(sort: \BodyMeasurement.date) private var measurements: [BodyMeasurement]
+    @MemberQuery private var memberships: [GymMembership]
+    @MemberQuery private var payments: [GymPayment]
+    @MemberQuery private var trainers: [Trainer]
 
     @State private var profileForSheet: HealthProfile?
     @State private var action: QuickAction?
     @State private var showTrends = false
     @State private var showAchievements = false
     @State private var showExport = false
+    @State private var showMembers = false
 
     // MARK: Derived values
 
     private var profile: HealthProfile { profiles.first ?? HealthProfile() }
     private var displayName: String {
         if let f = profiles.first?.firstName, !f.isEmpty { return f }
+        if !Member.isMe { return profiles.first?.relation ?? "Family member" }
         return userName.isEmpty ? "there" : userName
     }
     private var todayFoods: [FoodEntry] { foods.filter { Calendar.current.isDateInToday($0.date) } }
@@ -132,12 +134,14 @@ struct HomeView: View {
         .onChange(of: waterL) { _, _ in checkGoals() }
         .sheet(item: $profileForSheet) { p in NavigationStack { ProfileView(profile: p) } }
         .sheet(item: $action) { sheet(for: $0) }
+        .sheet(isPresented: $showMembers) { MemberPickerSheet().presentationDetents([.medium, .large]) }
         .navigationDestination(isPresented: $showTrends) { TrendsView() }
         .navigationDestination(isPresented: $showAchievements) { AchievementsView() }
         .navigationDestination(isPresented: $showExport) { ExportCenterView() }
     }
 
     private func checkGoals() {
+        guard Member.isMe else { return }
         let c = Celebration.shared
         if profile.stepGoal > 0 && health.steps >= profile.stepGoal {
             c.fireOncePerDay(key: "steps", "Step goal smashed", subtitle: "\(Int(health.steps).formatted()) steps today", icon: "figure.walk.motion")
@@ -203,10 +207,14 @@ struct HomeView: View {
                 .padding(.horizontal, 12).padding(.vertical, 8)
                 .background(.ultraThinMaterial, in: Capsule())
             }
-            Button { profileForSheet = ensureProfile(context) } label: {
-                AvatarView(data: profiles.first?.avatar, name: profiles.first?.fullName.isEmpty == false ? profiles.first!.fullName : userName, size: 54)
+            Button { showMembers = true } label: {
+                AvatarView(data: profiles.first?.avatar, name: profiles.first?.fullName.isEmpty == false ? profiles.first!.fullName : (Member.isMe ? userName : displayName), size: 54)
+                    .overlay(alignment: .bottomTrailing) {
+                        Image(systemName: "person.2.circle.fill").font(.callout).foregroundStyle(.white, .blue)
+                    }
             }
             .buttonStyle(PressStyle())
+            .accessibilityLabel("Switch family member")
         }
         .padding(.top, 8)
     }
@@ -412,6 +420,7 @@ struct HomeView: View {
     }
 
     private func pushWidget() {
+        guard Member.isMe else { return }   // the widget always shows your own day
         WidgetSync.push(TodaySnapshot(
             steps: health.steps, stepGoal: profile.stepGoal,
             activeCalories: health.activeCalories, calorieGoal: profile.activeCalorieGoal,

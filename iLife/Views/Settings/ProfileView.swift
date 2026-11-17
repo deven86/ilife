@@ -4,7 +4,7 @@ import SwiftData
 /// Returns the single HealthProfile, creating it the first time.
 @MainActor
 func ensureProfile(_ context: ModelContext) -> HealthProfile {
-    if let p = try? context.fetch(FetchDescriptor<HealthProfile>()).first { return p }
+    if let p = ((try? context.fetch(FetchDescriptor<HealthProfile>())) ?? []).mine.first { return p }
     let p = HealthProfile()
     context.insert(p)
     try? context.save()

@@ -147,7 +147,7 @@ struct WorkoutEditorView: View {
     let log: WorkoutLog?
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
-    @Query(sort: \Trainer.firstName) private var trainers: [Trainer]
+    @MemberQuery(sort: \Trainer.firstName) private var trainers: [Trainer]
     @Query private var allSets: [ExerciseSet]
 
     struct SetRow: Identifiable { let id = UUID(); var reps: Int; var kg: Double }
@@ -366,7 +366,7 @@ struct WorkoutEditorView: View {
 
 struct WorkoutDetailView: View {
     let log: WorkoutLog
-    @Query private var trainers: [Trainer]
+    @MemberQuery private var trainers: [Trainer]
     @State private var editing = false
 
     private var trainer: Trainer? { trainers.first { $0.uid == log.trainerID } }
