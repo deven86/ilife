@@ -237,6 +237,27 @@ enum AIContext {
             lines.append(line)
         }
 
+        if UserDefaults.standard.bool(forKey: "aiShareMedical") {
+            let mlist = ((try? ctx.fetch(FetchDescriptor<Medication>())) ?? []).filter(\.isCurrent)
+            let mdoses = ((try? ctx.fetch(FetchDescriptor<MedicationDose>())) ?? []).filter { cal.isDate($0.day, inSameDayAs: d0) }
+            if !mlist.isEmpty {
+                lines.append("PRESCRIBED MEDICINES (doctor's plan — never suggest changing doses):")
+                for m in mlist {
+                    let taken = mdoses.filter { $0.medicationUID == m.uid }.map(\.slot)
+                    var l = "  \(m.displayName) \(m.form.rawValue): \(m.scheduleText)"
+                    if !m.cause.isEmpty { l += "; for \(m.cause)" }
+                    if m.isDue(on: d0) { l += "; taken this day: " + (taken.isEmpty ? "none" : taken.joined(separator: ", ")) }
+                    lines.append(l)
+                }
+            }
+            let inj = ((try? ctx.fetch(FetchDescriptor<Injury>())) ?? []).filter { $0.status != "Healed" }
+            for i in inj {
+                lines.append("ACTIVE INJURY — \(i.title) (\(i.bodyPart), \(i.severity), \(i.status)); treatment: \(i.procedures.joined(separator: ", "))" + (i.restrictions.isEmpty ? "" : "; restrictions: \(i.restrictions)"))
+            }
+            let ev = ((try? ctx.fetch(FetchDescriptor<HealthEvent>())) ?? []).filter { $0.status != "Recovered" }
+            for e in ev { lines.append("HEALTH CONDITION — \(e.title) (\(e.kind), \(e.status))" + (e.notes.isEmpty ? "" : "; notes: \(e.notes.prefix(200))")) }
+        }
+
         lines.append("")
         lines.append("LAST 7 DAYS (oldest → newest; 0 = no data): ")
         lines.append("  dates: " + week.map { $0.formatted(.dateTime.weekday(.abbreviated).day()) }.joined(separator: " | "))

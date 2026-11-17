@@ -302,7 +302,8 @@ enum ILifeSchema {
         InBodyScan.self, MedicalDocument.self, EmergencyContact.self, HealthProfile.self, AppAlarm.self, ProgressPhoto.self,
         BodyMeasurement.self, CoachMessage.self, LibraryPhoto.self, CustomFood.self, CustomExercise.self, GymMembership.self, Trainer.self, GymPayment.self, Expense.self,
         Supplement.self, SupplementDose.self, DailyReview.self, ExerciseMedia.self,
-        MeditationLog.self, CustomMeditation.self
+        MeditationLog.self, CustomMeditation.self,
+        Medication.self, MedicationDose.self, Injury.self, HealthEvent.self, MedicalAttachment.self
     ]
 }
 
@@ -441,6 +442,8 @@ enum ExpenseCategory: String, CaseIterable, Identifiable {
     var billType: String = ""          // pdf | jpg
     @Attribute(.externalStorage) var bill: Data?
     @Attribute(.externalStorage) var photo: Data?
+    /// Set when the expense was created from a medical bill (the attachment's uid).
+    var sourceUID: String = ""
     init() {}
     var category: ExpenseCategory {
         get { ExpenseCategory(rawValue: categoryRaw) ?? .other }
@@ -662,4 +665,145 @@ extension Array where Element == WorkoutLog {
 
     var steps: [CustomStep] { (try? JSONDecoder().decode([CustomStep].self, from: Data(stepsJSON.utf8))) ?? [] }
     var script: MeditationScript { MeditationLibrary.custom(id: "custom-" + uid, title: title, steps: steps, lang: MLang(rawValue: language) ?? .english) }
+}
+
+
+// MARK: - Medical: medicines, injuries, major health events
+
+enum MedForm: String, CaseIterable, Identifiable {
+    case tablet = "Tablet", capsule = "Capsule", syrup = "Syrup", injection = "Injection", drops = "Drops",
+         ointment = "Ointment / cream", inhaler = "Inhaler", powder = "Powder / sachet", other = "Other"
+    var id: String { rawValue }
+    var icon: String {
+        switch self {
+        case .tablet, .capsule: "pills.fill"
+        case .syrup: "flask.fill"
+        case .injection: "syringe.fill"
+        case .drops: "drop.fill"
+        case .ointment: "hand.raised.fill"
+        case .inhaler: "lungs.fill"
+        case .powder: "takeoutbag.and.cup.and.straw.fill"
+        case .other: "cross.vial.fill"
+        }
+    }
+}
+
+@Model final class Medication {
+    var uid: String = UUID().uuidString
+    var name: String = ""
+    var company: String = ""
+    var strength: String = ""            // e.g. 500 mg
+    var formRaw: String = MedForm.tablet.rawValue
+    var dose: String = ""                // e.g. 1 tablet, 5 ml
+    var slots: [String] = []             // DoseSlot raw values
+    var weekdays: [Int] = []             // empty = every day
+    var startDate: Date = Date.now
+    var weeks: Int = 1                   // 0 = ongoing (when courseDays is 0)
+    var courseDays: Int = 0              // exact length in days, when given in days
+    var cause: String = ""
+    var doctorName: String = ""
+    var doctorPhone: String = ""
+    var hospital: String = ""
+    var instructions: String = ""        // e.g. after food, avoid dairy
+    var notes: String = ""
+    var remind: Bool = true
+    var isPaused: Bool = false
+    /// Optional link to an injury or major health event (its uid) and which kind.
+    var linkedUID: String = ""
+    var linkedKind: String = ""          // injury | event
+    @Attribute(.externalStorage) var photo: Data?
+    init() {}
+
+    var form: MedForm {
+        get { MedForm(rawValue: formRaw) ?? .other }
+        set { formRaw = newValue.rawValue }
+    }
+    var doseSlots: [DoseSlot] { slots.compactMap(DoseSlot.init(rawValue:)).sorted { $0.order < $1.order } }
+    var endDate: Date? {
+        let days = courseDays > 0 ? courseDays : weeks * 7
+        return days > 0 ? Calendar.current.date(byAdding: .day, value: days, to: Calendar.current.startOfDay(for: startDate)) : nil
+    }
+    var isFinished: Bool { endDate.map { $0 <= Calendar.current.startOfDay(for: .now) } ?? false }
+    var isCurrent: Bool { !isPaused && !isFinished && Calendar.current.startOfDay(for: startDate) <= .now }
+    func isDue(on day: Date) -> Bool {
+        let cal = Calendar.current
+        let d = cal.startOfDay(for: day)
+        guard !isPaused, d >= cal.startOfDay(for: startDate) else { return false }
+        if let end = endDate, d >= end { return false }
+        return weekdays.isEmpty || weekdays.contains(cal.component(.weekday, from: d))
+    }
+    var scheduleText: String {
+        let base = Supplement.scheduleText(timesPerDay: max(slots.count, 1), weekdays: weekdays, weeks: courseDays > 0 ? 0 : weeks)
+        guard courseDays > 0 else { return base }
+        return base.replacingOccurrences(of: ", ongoing", with: "") + " for \(courseDays) day\(courseDays == 1 ? "" : "s")"
+    }
+    var displayName: String { [name, strength].filter { !$0.isEmpty }.joined(separator: " ") }
+}
+
+@Model final class MedicationDose {
+    var medicationUID: String = ""
+    var slot: String = ""
+    var day: Date = Date.now
+    var takenAt: Date = Date.now
+    init(medicationUID: String, slot: String, day: Date) {
+        self.medicationUID = medicationUID; self.slot = slot; self.day = day
+    }
+}
+
+@Model final class Injury {
+    var uid: String = UUID().uuidString
+    var title: String = ""
+    var bodyPart: String = ""
+    var date: Date = Date.now
+    var howItHappened: String = ""
+    var severity: String = "Minor"       // Minor | Moderate | Severe
+    var procedures: [String] = []        // First aid, Stitches, Plaster/Cast, Surgery…
+    var procedureNotes: String = ""
+    var doctorName: String = ""
+    var hospital: String = ""
+    var hospitalised: Bool = false
+    var admitDate: Date?
+    var dischargeDate: Date?
+    var status: String = "Active"        // Active | Recovering | Healed
+    var healedDate: Date?
+    var restrictions: String = ""        // e.g. no squats for 3 weeks
+    var notes: String = ""
+    init() {}
+}
+
+@Model final class HealthEvent {
+    var uid: String = UUID().uuidString
+    var title: String = ""
+    var kind: String = "Illness"         // Illness / disease | Surgery / operation | Injury | Hospitalisation | Other
+    var date: Date = Date.now
+    var endDate: Date?
+    var diagnosis: String = ""
+    var procedure: String = ""
+    var doctorName: String = ""
+    var specialty: String = ""
+    var hospital: String = ""
+    var hospitalised: Bool = false
+    var admitDate: Date?
+    var dischargeDate: Date?
+    var status: String = "Under treatment"   // Under treatment | Recovered | Ongoing / chronic | Monitoring
+    var followUp: Date?
+    var notes: String = ""
+    init() {}
+}
+
+/// Photos, reports, prescriptions and bills attached to a medicine, injury or health event.
+@Model final class MedicalAttachment {
+    var uid: String = UUID().uuidString
+    var ownerUID: String = ""
+    var ownerKind: String = ""           // medication | injury | event
+    var kind: String = "Photo"           // Photo | Prescription | Report | Bill | Scan / X-ray | Discharge summary | Other
+    var title: String = ""
+    var date: Date = Date.now
+    var amount: Double = 0               // bills: cost, also added to Expenses
+    var fileType: String = "jpg"         // jpg | pdf
+    @Attribute(.externalStorage) var data: Data?
+    @Attribute(.externalStorage) var thumbnail: Data?
+    init(ownerUID: String, ownerKind: String, kind: String) {
+        self.ownerUID = ownerUID; self.ownerKind = ownerKind; self.kind = kind
+    }
 }

@@ -145,7 +145,7 @@ struct ExportCenterView: View {
     @State private var preset = 30
     @State private var from = Calendar.current.date(byAdding: .day, value: -29, to: .now)!
     @State private var to = Date.now
-    @State private var include: Set<String> = ["Workouts", "Exercise sets", "Food", "Water", "Meditation", "Supplements", "Weight & measurements", "InBody", "Payments", "Expenses", "AI reviews"]
+    @State private var include: Set<String> = ["Workouts", "Exercise sets", "Food", "Water", "Meditation", "Supplements", "Medicines", "Injuries & health events", "Weight & measurements", "InBody", "Payments", "Expenses", "AI reviews"]
     @State private var working = false
     @State private var items: [Any] = []
     @State private var show = false
@@ -294,6 +294,24 @@ struct ExportCenterView: View {
                 sups.map { [$0.name, $0.company, $0.dose, $0.scheduleText, $0.doseSlots.map(\.rawValue).joined(separator: "; "), $0.startDate, $0.weeks, $0.suggestedBy, $0.suggestedByName, $0.purpose, $0.isPaused] })
             let d = ((try? context.fetch(FetchDescriptor<SupplementDose>())) ?? []).filter { inRange($0.day) }.sorted { $0.takenAt < $1.takenAt }
             add("supplement doses", ["day", "supplement", "when", "ticked_at"], d.map { [$0.day, byID[$0.supplementUID]?.name ?? "", $0.slot, $0.takenAt] })
+        }
+        if include.contains("Medicines") {
+            let meds = (try? context.fetch(FetchDescriptor<Medication>())) ?? []
+            let byID = Dictionary(meds.map { ($0.uid, $0) }, uniquingKeysWith: { a, _ in a })
+            add("medicines", ["name", "strength", "type", "dose", "schedule", "start", "end", "cause", "doctor", "hospital", "instructions", "paused"],
+                meds.map { [$0.name, $0.strength, $0.form.rawValue, $0.dose, $0.scheduleText, $0.startDate, $0.endDate, $0.cause, $0.doctorName, $0.hospital, $0.instructions, $0.isPaused] })
+            let d = ((try? context.fetch(FetchDescriptor<MedicationDose>())) ?? []).filter { inRange($0.day) }.sorted { $0.takenAt < $1.takenAt }
+            add("medicine doses", ["day", "medicine", "when", "ticked_at"], d.map { [$0.day, byID[$0.medicationUID]?.displayName ?? "", $0.slot, $0.takenAt] })
+        }
+        if include.contains("Injuries & health events") {
+            let atts = (try? context.fetch(FetchDescriptor<MedicalAttachment>())) ?? []
+            func cost(_ id: String) -> Double { atts.filter { $0.ownerUID == id && $0.kind == "Bill" }.reduce(0) { $0 + $1.amount } }
+            let inj = ((try? context.fetch(FetchDescriptor<Injury>())) ?? []).sorted { $0.date < $1.date }
+            add("injuries", ["date", "injury", "body_part", "severity", "how", "treatment", "details", "doctor", "hospital", "admitted", "discharged", "status", "healed", "restrictions", "bills_inr"],
+                inj.map { [$0.date, $0.title, $0.bodyPart, $0.severity, $0.howItHappened, $0.procedures.joined(separator: "; "), $0.procedureNotes, $0.doctorName, $0.hospital, $0.admitDate, $0.dischargeDate, $0.status, $0.healedDate, $0.restrictions, cost($0.uid)] })
+            let ev = ((try? context.fetch(FetchDescriptor<HealthEvent>())) ?? []).sorted { $0.date < $1.date }
+            add("health events", ["date", "ended", "name", "type", "diagnosis", "procedure", "doctor", "speciality", "hospital", "admitted", "discharged", "status", "follow_up", "bills_inr", "notes"],
+                ev.map { [$0.date, $0.endDate, $0.title, $0.kind, $0.diagnosis, $0.procedure, $0.doctorName, $0.specialty, $0.hospital, $0.admitDate, $0.dischargeDate, $0.status, $0.followUp, cost($0.uid), $0.notes] })
         }
         if include.contains("Weight & measurements") {
             let m = ((try? context.fetch(FetchDescriptor<BodyMeasurement>())) ?? []).filter { inRange($0.date) }.sorted { $0.date < $1.date }

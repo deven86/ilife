@@ -9,6 +9,7 @@ struct AISettingsView: View {
     @State private var testing = false
     @State private var result: String?
     @ObservedObject private var coach = AICoordinator.shared
+    @AppStorage("aiShareMedical") private var shareMedical = false
 
     private func timeRow(_ title: String, _ minutes: Binding<Int>) -> some View {
         DatePicker(title, selection: Binding(
@@ -38,6 +39,11 @@ struct AISettingsView: View {
                     Text("Once a day")
                 } footer: {
                     Text("To keep cost low, iLife asks the AI only twice a day by itself: one plan in the morning (meals with recipes, workout, supplements, priorities) and one full review at night. Each is written the first time you open iLife after that time — iPhone doesn't let apps run on their own at a set hour — and is then saved, so reopening costs nothing. Snap Meal, InBody reading and Coach chat only run when you tap them.")
+                }
+                Section {
+                    Toggle("Include medicines & medical history", isOn: $shareMedical)
+                } header: { Text("Privacy") } footer: {
+                    Text("Off by default. When on, the AI sees current medicine names, whether doses were ticked, and active injuries or health events — so it can, for example, avoid exercises that strain an injury. It never changes or advises on doses; always follow your doctor.")
                 }
                 Section("Usage") {
                     HStack { Text("AI requests today"); Spacer(); Text("\(ai.callsToday)").foregroundStyle(.secondary) }

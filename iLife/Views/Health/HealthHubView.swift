@@ -13,6 +13,7 @@ struct HealthHubView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 AITipCard(area: .health)
+                MedicinesTodayCard()
                 TransformationCard(photos: progress).appear(0)
                 inBodyCard.appear(1)
                 if scans.count > 1 { trendCard }
@@ -21,6 +22,7 @@ struct HealthHubView: View {
                 }
                 .glassCard(cornerRadius: 16, padding: 14)
 
+                MedicalHubCard().appear(2)
                 vaultCard.appear(2)
                 emergencyCard.appear(3)
             }
