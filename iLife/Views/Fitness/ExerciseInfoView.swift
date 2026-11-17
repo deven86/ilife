@@ -118,10 +118,6 @@ struct ExerciseInfoView: View {
                     gifItem = nil
                 }
             }
-                let ok = url.startAccessingSecurityScopedResource()
-                defer { if ok { url.stopAccessingSecurityScopedResource() } }
-                store(fileAt: url)
-            }
         }
     }
 

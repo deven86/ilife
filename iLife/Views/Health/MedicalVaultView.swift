@@ -105,12 +105,6 @@ struct AddMedicalDocView: View {
                     .disabled(data == nil)
                 }
             }
-                let access = url.startAccessingSecurityScopedResource()
-                defer { if access { url.stopAccessingSecurityScopedResource() } }
-                data = try? Data(contentsOf: url)
-                fileType = url.pathExtension.lowercased() == "pdf" ? "pdf" : "jpg"
-                if title.isEmpty { title = url.deletingPathExtension().lastPathComponent }
-            }
             .onChange(of: photo) { _, item in
                 Task {
                     if let d = try? await item?.loadTransferable(type: Data.self), let img = UIImage(data: d) {

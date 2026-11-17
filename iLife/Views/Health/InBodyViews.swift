@@ -125,12 +125,6 @@ struct InBodyImportView: View {
                     ToolbarItem(placement: .confirmationAction) { Button("Save", action: save).disabled(Double(weight) == nil) }
                 }
             }
-                let access = url.startAccessingSecurityScopedResource()
-                defer { if access { url.stopAccessingSecurityScopedResource() } }
-                guard let data = try? Data(contentsOf: url) else { return }
-                let pages = url.pathExtension.lowercased() == "pdf" ? InBodyScanner.images(fromPDF: data) : [UIImage(data: data)].compactMap { $0 }
-                Task { await read(pages) }
-            }
             .onChange(of: photoItem) { _, item in
                 Task {
                     if let data = try? await item?.loadTransferable(type: Data.self), let img = UIImage(data: data) {

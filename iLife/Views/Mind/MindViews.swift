@@ -284,15 +284,6 @@ struct SessionSetupSheet: View {
                 MeditationPlayerView(script: script, minutes: isCustom ? (script.lengths.first ?? 5) : minutes, lang: script.fixedLang ?? lang,
                                      sound: sound, moodBefore: moodBefore)
             }
-                let ok = url.startAccessingSecurityScopedResource()
-                defer { if ok { url.stopAccessingSecurityScopedResource() } }
-                try? FileManager.default.createDirectory(at: Self.fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-                try? FileManager.default.removeItem(at: Self.fileURL)
-                if (try? FileManager.default.copyItem(at: url, to: Self.fileURL)) != nil {
-                    fileName = url.lastPathComponent
-                    UserDefaults.standard.set(fileName, forKey: "medFileName")
-                }
-            }
         }
     }
 }
