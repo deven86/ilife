@@ -4,6 +4,9 @@ name: App Store screenshots
 # using the app's in-memory sample data (-uiScreenshots). Real data is never used.
 on: workflow_dispatch
 
+permissions:
+  contents: write
+
 jobs:
   shots:
     runs-on: macos-15-intel
@@ -59,7 +62,13 @@ jobs:
             xcrun simctl shutdown "$U" || true
           done
           for f in shots/*.png; do echo "$f $(sips -g pixelWidth -g pixelHeight "$f" | awk '/pixel/{print $2}' | tr '\n' 'x')"; done
-      - uses: actions/upload-artifact@v4
-        with:
-          name: screenshots
-          path: shots/
+      - name: Save to the appstore-screens branch
+        run: |
+          git config user.name "iLife CI"; git config user.email "ci@users.noreply.github.com"
+          mkdir -p "$RUNNER_TEMP/out" && cp shots/*.png "$RUNNER_TEMP/out/"
+          git checkout --orphan appstore-screens
+          git rm -rq --cached . && git clean -fdq -e dd
+          rm -rf dd
+          cp "$RUNNER_TEMP/out/"*.png .
+          git add *.png && git commit -qm "Screenshots $(date -u +%F)"
+          git push -f origin appstore-screens
