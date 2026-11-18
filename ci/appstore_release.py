@@ -68,7 +68,7 @@ if ar:
                  "sexualContentGraphicAndNudity", "sexualContentOrNudity", "violenceCartoonOrFantasy", "violenceRealistic",
                  "violenceRealisticProlongedGraphicOrSadistic", "gunsOrOtherWeapons"}
     bool_false = {"gambling", "unrestrictedWebAccess", "lootBox", "messagingAndChat", "parentalControls", "ageAssurance",
-                  "userGeneratedContent", "advertising", "seventeenPlus", "kidsAgeBand"}
+                  "userGeneratedContent", "advertising", "seventeenPlus", "kidsAgeBand", "socialMedia", "socialMediaAgeRestricted"}
     new = {}
     for k in cur:
         if k in enum_none: new[k] = "NONE"
