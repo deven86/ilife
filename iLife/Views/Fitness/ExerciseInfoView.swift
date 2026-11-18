@@ -68,7 +68,7 @@ struct ExerciseInfoView: View {
                 } header: {
                     Text("Explainer video or GIF")
                 } footer: {
-                    Text("Keep videos short — they're stored in your iCloud. For long tutorials, paste a link below instead.")
+                    Text("Keep videos short — they're stored on this device. For long tutorials, paste a link below instead.")
                 }
 
                 Section("Equipment photo") {
@@ -128,7 +128,7 @@ struct ExerciseInfoView: View {
     }
 
     private func store(data: Data, type: String) {
-        problem = data.count > 80_000_000 ? "That file is large (\(data.count / 1_000_000) MB) — it will use iCloud space. A shorter clip is better." : nil
+        problem = data.count > 80_000_000 ? "That file is large (\(data.count / 1_000_000) MB) — it will use a lot of storage. A shorter clip is better." : nil
         let m = ensure()
         m.video = data; m.videoType = type; m.updated = .now
         try? context.save()

@@ -9,14 +9,34 @@ struct RootView: View {
     @AppStorage("onboarded") private var onboarded = false
     @ObservedObject private var members = MemberStore.shared
     @State private var showMembers = false
+    @State private var tab = RootView.initialTab
+
+    /// App Store screenshot runs open a specific tab / screen.
+    private static var initialTab: Int {
+        guard ScreenshotMode.isOn else { return 0 }
+        switch ScreenshotMode.screen {
+        case "fitness": return 1
+        case "nutrition": return 2
+        case "health", "medicines", "injury": return 3
+        default: return 0
+        }
+    }
 
     var body: some View {
-        TabView {
-            Tab("Home", systemImage: "house.fill") { NavigationStack { HomeView() } }
-            Tab("Fitness", systemImage: "figure.strengthtraining.traditional") { NavigationStack { FitnessView() } }
-            Tab("Nutrition", systemImage: "fork.knife") { NavigationStack { NutritionView() } }
-            Tab("Health", systemImage: "heart.text.square.fill") { NavigationStack { HealthHubView() } }
-            Tab("More", systemImage: "gearshape.fill") { NavigationStack { SettingsView() } }
+        TabView(selection: $tab) {
+            Tab("Home", systemImage: "house.fill", value: 0) {
+                NavigationStack { if ScreenshotMode.isOn && ScreenshotMode.screen == "family" { FamilyView() } else { HomeView() } }
+            }
+            Tab("Fitness", systemImage: "figure.strengthtraining.traditional", value: 1) { NavigationStack { FitnessView() } }
+            Tab("Nutrition", systemImage: "fork.knife", value: 2) { NavigationStack { NutritionView() } }
+            Tab("Health", systemImage: "heart.text.square.fill", value: 3) {
+                NavigationStack {
+                    if ScreenshotMode.isOn && ScreenshotMode.screen == "medicines" { MedicineListView() }
+                    else if ScreenshotMode.isOn && ScreenshotMode.screen == "injury" { InjuryListView() }
+                    else { HealthHubView() }
+                }
+            }
+            Tab("More", systemImage: "gearshape.fill", value: 4) { NavigationStack { SettingsView() } }
         }
         .tabViewStyle(.sidebarAdaptable)   // tab bar on iPhone, sidebar on iPad
         // Apple Health only holds your data — family members see their manually logged entries.

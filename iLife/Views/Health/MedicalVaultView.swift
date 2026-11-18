@@ -17,7 +17,7 @@ struct MedicalVaultView: View {
         List {
             if docs.isEmpty {
                 ContentUnavailableView("No \(kind.rawValue.lowercased()) yet", systemImage: kind.icon,
-                                       description: Text("Scan or upload documents. They sync to your private iCloud and stay behind Face ID."))
+                                       description: Text("Scan or upload documents. They stay on this device, behind Face ID."))
             }
             ForEach(docs) { d in
                 Button { open(d) } label: {

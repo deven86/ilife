@@ -14,17 +14,21 @@ struct iLifeApp: App {
 
     init() {
         let schema = Schema(ILifeSchema.models)
-        // Private iCloud database — syncs iPhone ⇄ iPad automatically.
-        let cloud = ModelConfiguration(schema: schema, cloudKitDatabase: .private("iCloud.group.com.jondhale.ilife"))
-        if let c = try? ModelContainer(for: schema, configurations: cloud) {
-            container = c
-        } else {
-            // iCloud unavailable (signed out / first launch issues): keep working locally.
-            let local = ModelConfiguration(schema: schema, cloudKitDatabase: .none)
-            container = try! ModelContainer(for: schema, configurations: local)
+        // On-device only. App Store guideline 5.1.3(ii): apps may not store personal health
+        // information in iCloud. Same store file as before, so existing data is kept.
+        if ScreenshotMode.isOn {
+            ScreenshotMode.prepareDefaults()
+            let mem = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
+            container = try! ModelContainer(for: schema, configurations: mem)
+            MainActor.assumeIsolated {
+                ScreenshotMode.seed(container.mainContext)
+                ScreenshotMode.fakeHealth(HealthKitManager.shared)
+            }
+            return
         }
+        let local = ModelConfiguration(schema: schema, cloudKitDatabase: .none)
+        container = try! ModelContainer(for: schema, configurations: local)
         MediaStore.shared.attach(container)
-        SyncMonitor.shared.start()
         AICoordinator.shared.attach(container)
         AICoordinator.shared.scheduleNotifications()
         if UserDefaults.standard.bool(forKey: "healthConnected") {

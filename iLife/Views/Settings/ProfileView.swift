@@ -64,7 +64,7 @@ struct ProfileView: View {
             }
 
             Section {
-                Text("Your profile is stored in your private iCloud and never shared.").font(.caption).foregroundStyle(.secondary)
+                Text("Your profile is stored only on this device and never shared.").font(.caption).foregroundStyle(.secondary)
             }
         }
         .navigationTitle("Profile")

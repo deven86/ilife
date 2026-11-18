@@ -32,7 +32,7 @@ final class HealthKitManager: ObservableObject {
     @Published var sleepYesterday: Double = 0
     @Published var weeklyActiveCalories: [Double] = Array(repeating: 0, count: 7)
 
-    var isAvailable: Bool { !isBlank && HKHealthStore.isHealthDataAvailable() }
+    var isAvailable: Bool { !isBlank && !ScreenshotMode.isOn && HKHealthStore.isHealthDataAvailable() }
 
     private var readTypes: Set<HKObjectType> {
         var s: Set<HKObjectType> = [HKObjectType.workoutType()]

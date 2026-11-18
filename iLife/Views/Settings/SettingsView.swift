@@ -12,7 +12,6 @@ struct SettingsView: View {
     @MemberQuery private var profiles: [HealthProfile]
     @AppStorage("userName") private var userName = "Devendra"
     @State private var wallpaperItem: PhotosPickerItem?
-    @State private var iCloudStatus = "Checking…"
     @State private var showPlaylists = false
 
     var body: some View {
@@ -105,11 +104,11 @@ struct SettingsView: View {
                 NavigationLink { AlarmsView() } label: { Label("Alarms", systemImage: "alarm.fill") }
             }
 
-            Section("iCloud") {
-                HStack { Label("iCloud sync", systemImage: "icloud.fill"); Spacer(); Text(iCloudStatus).foregroundStyle(.secondary) }
-                NavigationLink { SyncStatusView() } label: { Label("Sync status", systemImage: "arrow.triangle.2.circlepath") }
-                Text("iLife keeps your data in your private iCloud database so your iPhone and iPad stay in step.")
-                    .font(.caption).foregroundStyle(.secondary)
+            Section {
+                HStack { Label("Your data", systemImage: "lock.iphone"); Spacer(); Text("On this device").foregroundStyle(.secondary) }
+                NavigationLink { ExportCenterView() } label: { Label("Export a copy", systemImage: "square.and.arrow.up") }
+            } header: { Text("Privacy & storage") } footer: {
+                Text("Your health records never leave this device — there is no iLife server and nothing is synced to iCloud. They are included in your encrypted iPhone backup. Export a copy any time.")
             }
 
             Section {
@@ -120,10 +119,6 @@ struct SettingsView: View {
         .background { WallpaperView() }
         .navigationTitle("More")
         .sheet(isPresented: $showPlaylists) { PlaylistPicker() }
-        .task {
-            let status = try? await CKContainer(identifier: "iCloud.group.com.jondhale.ilife").accountStatus()
-            iCloudStatus = status == .available ? "On" : "Sign in to iCloud"
-        }
     }
 }
 

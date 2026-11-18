@@ -182,10 +182,7 @@ struct SyncStatusView: View {
             }
         }
         .navigationTitle("Sync Status")
-        .task {
-            let status = try? await CKContainer(identifier: "iCloud.group.com.jondhale.ilife").accountStatus()
-            account = status == .available ? "Signed in" : "Not signed in"
-        }
+
     }
 
     private func row(_ title: String, _ value: String) -> some View {
