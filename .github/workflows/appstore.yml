@@ -1,0 +1,57 @@
+name: App Store release
+
+# Fills the App Store page, screenshots, price (free) and availability, and optionally submits for review.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (must match an uploaded build)"
+        default: "1.7.0"
+      phone:
+        description: "Reviewer contact phone (masked in logs)"
+        required: true
+      email:
+        description: "Reviewer contact email"
+        required: true
+      submit:
+        description: "Type yes to submit for App Review"
+        default: "no"
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+    steps:
+      - name: Mask contact details
+        run: echo "::add-mask::${{ inputs.phone }}"
+      - uses: actions/checkout@v5
+      - name: Write key
+        run: |
+          mkdir -p "$RUNNER_TEMP/keys"
+          printf '%s' "${{ secrets.ASC_KEY_P8_BASE64 }}" > "$RUNNER_TEMP/keys/raw"
+          if grep -q "BEGIN PRIVATE KEY" "$RUNNER_TEMP/keys/raw"; then cp "$RUNNER_TEMP/keys/raw" "$RUNNER_TEMP/keys/AuthKey.p8"; else tr -d ' \r\n' < "$RUNNER_TEMP/keys/raw" | base64 --decode > "$RUNNER_TEMP/keys/AuthKey.p8"; fi
+          rm -f "$RUNNER_TEMP/keys/raw"
+          echo "ASC_KEY_PATH=$RUNNER_TEMP/keys/AuthKey.p8" >> "$GITHUB_ENV"
+      - name: Prepare release
+        env:
+          VERSION: ${{ inputs.version }}
+          PHONE: ${{ inputs.phone }}
+          EMAIL: ${{ inputs.email }}
+          SUBMIT: ${{ inputs.submit }}
+          FIRST: Devendra
+          LAST: Jondhale
+          APP_NAME: iLife Health
+          PRIVACY_URL: https://docs.google.com/document/d/1M7z3H1RdtLkgK7slRbpWKiJEVRqxNnkZKtGxfVPMuFE/view
+          SUPPORT_URL: https://docs.google.com/document/d/1tYJ_zH2jcwe2nnaO2qhmfLEruEvMlaDnRgcoIw13IJw/view
+        run: |
+          pip install --quiet pyjwt cryptography requests
+          python3 ci/appstore_release.py
+      - name: Remove key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/keys"

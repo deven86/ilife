@@ -1,0 +1,46 @@
+iLife Health brings your workouts, food, medicines, medical records and your family's health into one private app. Everything stays on your iPhone or iPad, protected by Face ID. There are no accounts, no servers and no ads.
+
+TODAY AT A GLANCE
+• Steps, calories, exercise minutes, heart rate and sleep from Apple Health and your Apple Watch
+• Daily targets for calories, protein, water and steps, with a Home Screen widget
+• Smart insights and trends over weeks and months
+
+WORKOUTS
+• Log strength sets, cardio and yoga, or start a live session with a timer on the Lock Screen
+• Workouts recorded on Apple Watch are imported automatically from Apple Health
+• Build weekly plans, browse a large exercise library and add your own how-to videos
+• Track personal-training sessions, packages and trainer payments
+
+NUTRITION
+• Log meals at any time, for any day, from a large Indian and international food list
+• Water tracking, macros, and favourite foods
+• Supplements with schedules, days of the week, course length and reminders
+
+MEDICINES, INJURIES & HEALTH RECORDS
+• Prescribed medicines: cause, doctor, tablet, syrup, injection or other, dose times, course length, reminders and a daily checklist
+• Photos of prescriptions and medicine bills
+• Injuries: what happened, treatment (stitches, cast, surgery and more), hospital stay, recovery status, photos and reports
+• Major health events such as surgeries and illnesses, with doctor, hospital, procedure, follow-up reminders and attachments
+• Medical bills are added to your expenses automatically
+• Medical vault for reports and scans, InBody result scanning, and an emergency Medical ID
+
+FAMILY
+• Add your spouse, children, parents, siblings and other relatives
+• Each person has their own profile (age, sex, blood group, allergies, conditions) and their own food, medicines, reports, injuries and expenses
+• Switch people with one tap; reminders say whose medicine it is
+
+BODY & MIND
+• Weight, measurements and transformation photos and videos, with before-and-after comparisons
+• Guided meditations in English and Hindi with soothing soundscapes
+• Alarms, Apple Music workout playlists, and many themes
+
+SHARE & EXPORT
+• Beautiful daily reports and charts as images or PDF, and CSV export of every entry
+
+OPTIONAL AI
+Turn on AI with your own Anthropic API key for a morning plan, a night review, recipes, meal-photo logging and report reading. AI is off by default, and the rest of the app works without it.
+
+PRIVACY
+Your data never leaves your device unless you choose to share it. iLife reads from and writes to Apple Health only with your permission, and never uses health data for advertising.
+
+iLife Health is a wellness and record-keeping app. It does not provide medical advice. Always follow your doctor's guidance.

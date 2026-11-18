@@ -1,0 +1,7 @@
+No login or account is needed. There is no server: all data is stored only on the device (no iCloud storage).
+
+Apple Health: optional. Connect it from the onboarding screen or More > Connected sources. It is used to show steps, sleep, heart rate and workouts, and to save meals, water, workouts and mindful minutes. Workouts recorded on Apple Watch are imported from Apple Health; there is no separate watchOS app.
+
+AI features (More > Smart features) are off by default and need the user's own Anthropic API key, so they can be skipped during review. All other features work without them. Medicines, injuries and health events are the user's own records; the app does not give medical advice, and the AI is told never to change medicine doses.
+
+Family members: tap the profile photo on Home to add or switch people.
