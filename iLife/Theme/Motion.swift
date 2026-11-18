@@ -25,7 +25,7 @@ struct PressStyle: ButtonStyle {
 /// Cards rise and fade in, one after another.
 struct AppearModifier: ViewModifier {
     let index: Int
-    @State private var shown = false
+    @State private var shown = ScreenshotMode.isOn   // screenshots: no fade-in
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {

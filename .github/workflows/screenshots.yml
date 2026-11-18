@@ -10,7 +10,7 @@ permissions:
 jobs:
   shots:
     runs-on: macos-15-intel
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v5
       - name: Select Xcode 26
@@ -50,11 +50,11 @@ jobs:
             xcrun simctl status_bar "$U" override --time 9:41 --dataNetwork wifi --wifiMode active --wifiBars 3 --cellularMode active --cellularBars 4 --batteryState charged --batteryLevel 100 || true
             xcrun simctl install "$U" "$APP"
             # first launch warms up caches
-            xcrun simctl launch "$U" com.jondhale.ilife -uiScreenshots -screen home >/dev/null; sleep 25; xcrun simctl terminate "$U" com.jondhale.ilife || true
+            xcrun simctl launch "$U" com.jondhale.ilife -uiScreenshots -screen home >/dev/null; sleep 60; xcrun simctl terminate "$U" com.jondhale.ilife || true
             i=1
             for S in home nutrition fitness health medicines family injury; do
               xcrun simctl launch "$U" com.jondhale.ilife -uiScreenshots -screen $S >/dev/null
-              sleep 12
+              sleep 45   # the Intel simulator is slow to finish launching
               xcrun simctl io "$U" screenshot "shots/${N}_0${i}_${S}.png"
               xcrun simctl terminate "$U" com.jondhale.ilife || true
               i=$((i+1))
