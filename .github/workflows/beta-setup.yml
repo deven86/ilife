@@ -1,0 +1,67 @@
+name: TestFlight external testers
+
+# Sets up external TestFlight testing and prints the public link.
+on:
+  workflow_dispatch:
+    inputs:
+      phone:
+        description: "Contact phone for Apple's beta reviewer (masked in logs)"
+        required: true
+      email:
+        description: "Feedback / contact email"
+        required: true
+      limit:
+        description: "Max testers via public link"
+        default: "4"
+
+permissions:
+  contents: read
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+    steps:
+      - name: Mask contact details
+        run: |
+          echo "::add-mask::${{ inputs.phone }}"
+      - uses: actions/checkout@v5
+      - name: Write key
+        run: |
+          mkdir -p "$RUNNER_TEMP/keys"
+          printf '%s' "${{ secrets.ASC_KEY_P8_BASE64 }}" > "$RUNNER_TEMP/keys/raw"
+          if grep -q "BEGIN PRIVATE KEY" "$RUNNER_TEMP/keys/raw"; then cp "$RUNNER_TEMP/keys/raw" "$RUNNER_TEMP/keys/AuthKey.p8"; else tr -d ' \r\n' < "$RUNNER_TEMP/keys/raw" | base64 --decode > "$RUNNER_TEMP/keys/AuthKey.p8"; fi
+          rm -f "$RUNNER_TEMP/keys/raw"
+          echo "ASC_KEY_PATH=$RUNNER_TEMP/keys/AuthKey.p8" >> "$GITHUB_ENV"
+      - name: Set up testing
+        env:
+          PHONE: ${{ inputs.phone }}
+          EMAIL: ${{ inputs.email }}
+          LIMIT: ${{ inputs.limit }}
+          FIRST: Devendra
+          LAST: Jondhale
+          GROUP: iLife Testers
+          PRIVACY_URL: https://docs.google.com/document/d/12TV_xDpOMqY9rMzrHRTwCIrsUHtrtQ9yAoY54ar8tko/view
+          DESCRIPTION: >-
+            iLife is a private health, workout and diet tracker for iPhone and iPad. Log meals, water, workouts and body
+            measurements, sync with Apple Health and Apple Watch, follow workout plans, track supplements and prescribed
+            medicines with reminders, keep injuries, major health events and medical reports with photos and bills, manage
+            gym memberships and expenses, do guided meditation, and track family members separately. Optional AI features
+            use your own API key. All data stays on your device and your own iCloud.
+          WHATS_NEW: >-
+            Please try: set up your profile, connect Apple Health, log food and water, start a workout, add a supplement or
+            medicine with a photo, log an injury with photos and a bill, add a family member and switch between people,
+            try a guided meditation, and share a daily report. Report anything that crashes or looks wrong using TestFlight feedback.
+          REVIEW_NOTES: >-
+            No login or account is needed. All data is stored locally and in the user's private iCloud; there is no server.
+            Apple Health access is optional. AI features are off by default and require the user's own Anthropic API key,
+            so they can be skipped during review. Face ID lock is optional (Settings).
+        run: |
+          pip install --quiet pyjwt cryptography requests
+          python3 ci/beta_setup.py
+      - name: Remove key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/keys"
