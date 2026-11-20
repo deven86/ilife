@@ -107,6 +107,7 @@ struct SettingsView: View {
             Section {
                 HStack { Label("Your data", systemImage: "lock.iphone"); Spacer(); Text("On this device").foregroundStyle(.secondary) }
                 NavigationLink { ExportCenterView() } label: { Label("Export a copy", systemImage: "square.and.arrow.up") }
+                NavigationLink { HealthExchangeView() } label: { Label("iTeam ⇄ iLife (export / import)", systemImage: "arrow.left.arrow.right.circle") }
             } header: { Text("Privacy & storage") } footer: {
                 Text("Your health records never leave this device — there is no iLife server and nothing is synced to iCloud. They are included in your encrypted iPhone backup. Export a copy any time.")
             }
