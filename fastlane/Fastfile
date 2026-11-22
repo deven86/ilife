@@ -80,6 +80,7 @@ platform :ios do
       next unless identifier == MAIN_ID
       enable(bundle, identifier, "HEALTHKIT")
       enable(bundle, identifier, "PUSH_NOTIFICATIONS")
+      enable(bundle, identifier, "APPLE_ID_AUTH", [{ key: "APPLE_ID_AUTH_APP_CONSENT", options: [{ key: "PRIMARY_APP_CONSENT", enabled: true }] }])
       enable(bundle, identifier, "ICLOUD", [{ key: "ICLOUD_VERSION", options: [{ key: "XCODE_6", enabled: true }] }])
       enable(bundle, identifier, "DATA_PROTECTION",
              [{ key: "DATA_PROTECTION_PERMISSION_LEVEL", options: [{ key: "COMPLETE_PROTECTION", enabled: true }] }])
