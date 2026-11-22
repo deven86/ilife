@@ -6,7 +6,7 @@ struct RootView: View {
     @EnvironmentObject var health: HealthKitManager
     @Environment(\.modelContext) private var context
     @State private var showSession = false
-    @AppStorage("onboarded") private var onboarded = false
+    @AppStorage(Account.scoped("onboarded")) private var onboarded = false
     @ObservedObject private var members = MemberStore.shared
     @State private var showMembers = false
     @State private var tab = RootView.initialTab
@@ -40,7 +40,8 @@ struct RootView: View {
         }
         .tabViewStyle(.sidebarAdaptable)   // tab bar on iPhone, sidebar on iPad
         // Apple Health only holds your data — family members see their manually logged entries.
-        .environmentObject(members.isMe ? HealthKitManager.shared : HealthKitManager.blank)
+        // …and only to the iLife account that connected it on this iPhone.
+        .environmentObject(members.isMe && HealthOwner.allowed ? HealthKitManager.shared : HealthKitManager.blank)
         .id(members.uid)
         .safeAreaInset(edge: .top, spacing: 0) {
             if !members.isMe { ViewingMemberBanner { showMembers = true } }
@@ -54,12 +55,12 @@ struct RootView: View {
         }
         .fullScreenCover(isPresented: $showSession) { ActiveWorkoutView() }
         .onChange(of: session.isActive) { _, active in if active { showSession = true } }
-        .sheet(isPresented: .constant(!onboarded)) { OnboardingView { onboarded = true } .interactiveDismissDisabled() }
+        .fullScreenCover(isPresented: .constant(!onboarded)) { SetupView { onboarded = true } }
         .task {
             let all = (try? context.fetch(FetchDescriptor<HealthProfile>())) ?? []
             Member.cacheNames(all)
             if !Member.isMe && !all.contains(where: { $0.memberUID == Member.current }) { members.switchTo("") }
-            if health.isAuthorized || UserDefaults.standard.bool(forKey: "healthConnected") {
+            if HealthOwner.allowed && (health.isAuthorized || UserDefaults.standard.bool(forKey: "healthConnected")) {
                 await HealthKitManager.shared.refreshToday()
                 await HealthKitManager.shared.importWorkouts(into: context, notify: false)
             }

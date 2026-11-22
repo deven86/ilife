@@ -6,7 +6,7 @@ struct HomeView: View {
     @EnvironmentObject var session: WorkoutSessionController
     @EnvironmentObject var theme: ThemeManager
     @Environment(\.modelContext) private var context
-    @AppStorage("userName") private var userName = "Devendra"
+    @AppStorage("userName") private var userName = ""
 
     @MemberQuery(sort: \FoodEntry.date, order: .reverse) private var foods: [FoodEntry]
     @MemberQuery(sort: \WaterEntry.date, order: .reverse) private var waters: [WaterEntry]

@@ -1,6 +1,10 @@
 import Foundation
 import UIKit
 import Security
+import Vision
+#if canImport(FoundationModels)
+import FoundationModels
+#endif
 
 /// Stores the AI API key in the iPhone Keychain (never in iCloud, never in the code).
 enum KeychainStore {
@@ -91,6 +95,44 @@ final class AIService: ObservableObject {
     static let models = ["claude-sonnet-5-5", "claude-haiku-5-5", "claude-opus-5-5"]
 
     @Published var hasKey: Bool = !KeychainStore.get("anthropic").isEmpty
+
+    /// Which AI answers: Apple Intelligence on this device (free, private, offline) or Claude with your own key.
+    enum Engine: String, CaseIterable, Identifiable {
+        case apple, claude
+        var id: String { rawValue }
+        var title: String { self == .apple ? "Apple Intelligence — free, on this iPhone" : "Claude — your own Anthropic key" }
+    }
+    @Published var engine: Engine = Engine(rawValue: UserDefaults.standard.string(forKey: "aiEngine") ?? "")
+        ?? (AIService.appleAvailable || KeychainStore.get("anthropic").isEmpty ? .apple : .claude) {
+        didSet { UserDefaults.standard.set(engine.rawValue, forKey: "aiEngine") }
+    }
+
+    static var appleAvailable: Bool {
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *), case .available = SystemLanguageModel.default.availability { return true }
+        #endif
+        return false
+    }
+
+    static var appleUnavailableReason: String {
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *) {
+            switch SystemLanguageModel.default.availability {
+            case .available: return ""
+            case .unavailable(let reason):
+                switch reason {
+                case .deviceNotEligible: return "This device doesn't support Apple Intelligence (needs iPhone 15 Pro or newer, or an iPad with M1 or later). Use Claude with your own key instead."
+                case .appleIntelligenceNotEnabled: return "Turn on Apple Intelligence in Settings → Apple Intelligence & Siri, then come back."
+                case .modelNotReady: return "Apple Intelligence is still downloading to this device. Try again a little later."
+                @unknown default: return "Apple Intelligence isn't available right now."
+                }
+            }
+        }
+        return "Apple Intelligence needs iOS 26 or later."
+        #else
+        return "Apple Intelligence isn't available in this build."
+        #endif
+    }
     @Published var model: String = UserDefaults.standard.string(forKey: "aiModel") ?? "claude-sonnet-5-5" {
         didSet { UserDefaults.standard.set(model, forKey: "aiModel") }
     }
@@ -99,7 +141,12 @@ final class AIService: ObservableObject {
     @Published var enabled: Bool = (UserDefaults.standard.object(forKey: "aiEnabled") as? Bool) ?? true {
         didSet { UserDefaults.standard.set(enabled, forKey: "aiEnabled") }
     }
-    var isOn: Bool { hasKey && enabled }
+    var isOn: Bool { enabled && (engine == .apple ? AIService.appleAvailable : hasKey) }
+    var statusText: String {
+        if !enabled { return "Off" }
+        if engine == .apple { return AIService.appleAvailable ? "Apple Intelligence" : "Not available" }
+        return hasKey ? "Claude" : "Add key"
+    }
     var isReady: Bool { isOn }
 
     /// Requests sent today (resets at midnight) — shown in settings so cost is visible.
@@ -132,6 +179,7 @@ final class AIService: ObservableObject {
 
     /// One call to the Claude Messages API. Images go with the last user turn.
     func send(system: String, turns: [Turn], images: [UIImage] = [], maxTokens: Int = 4000) async throws -> String {
+        if engine == .apple { return try await sendApple(system: system, turns: turns, images: images) }
         let key = KeychainStore.get("anthropic")
         guard !key.isEmpty else { throw AIError.noKey }
 
@@ -192,6 +240,80 @@ final class AIService: ObservableObject {
             lastProblem = stop.isEmpty ? "no text returned" : "stopped: \(stop)"
         }
         throw AIError.parse(lastProblem)
+    }
+
+    // MARK: Apple Intelligence (on-device)
+
+    /// The on-device model has a small context window (about 4,000 tokens for instructions, prompt
+    /// and answer together), so long inputs are cut down — instructions first, then the newest data.
+    private func sendApple(system: String, turns: [Turn], images: [UIImage]) async throws -> String {
+        #if canImport(FoundationModels)
+        guard #available(iOS 26.0, *) else { throw AIError.parse(AIService.appleUnavailableReason) }
+        guard AIService.appleAvailable else { throw AIError.parse(AIService.appleUnavailableReason) }
+        var seen = ""
+        for img in images.prefix(3) {
+            let d = await AIService.describeOnDevice(img)
+            if !d.isEmpty { seen += d + "\n" }
+        }
+        var talk = turns.dropLast().suffix(6).map { ($0.role == "user" ? "User: " : "You: ") + $0.text }.joined(separator: "\n")
+        let last = turns.last?.text ?? ""
+        if !talk.isEmpty { talk = "Earlier in this chat:\n" + talk + "\n\n" }
+        var prompt = talk + last
+        if !images.isEmpty {
+            prompt += "\n\nThe photo was read on this device (you can't see it yourself). What it shows:\n"
+                + (seen.isEmpty ? "Nothing readable was found." : seen)
+                + "\nWork only from this; if it isn't enough, say so in the note."
+        }
+        var budget = 7_500
+        for _ in 0..<3 {
+            let sys = Self.clip(system, max(1_800, budget * 6 / 10), keepEnd: true)
+            let pr = Self.clip(prompt, max(1_200, budget * 4 / 10), keepEnd: true)
+            do {
+                let session = LanguageModelSession(instructions: sys)
+                let out = try await session.respond(to: pr).content
+                callsToday = AIService.storedCalls() + 1
+                guard !out.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw AIError.empty }
+                return out
+            } catch let e as LanguageModelSession.GenerationError {
+                switch e {
+                case .exceededContextWindowSize: budget = budget * 6 / 10; continue
+                case .guardrailViolation: throw AIError.parse("Apple Intelligence declined this request. Try different wording, or use Claude in More → AI Assistant")
+                default: throw AIError.parse("Apple Intelligence: \(e.localizedDescription)")
+                }
+            }
+        }
+        throw AIError.parse("too much data for Apple Intelligence — use Claude for this one")
+        #else
+        throw AIError.parse(AIService.appleUnavailableReason)
+        #endif
+    }
+
+    /// Shortens text to about `limit` characters, keeping the start and the end.
+    private static func clip(_ s: String, _ limit: Int, keepEnd: Bool) -> String {
+        guard s.count > limit else { return s }
+        let head = s.prefix(limit * 45 / 100)
+        let tail = s.suffix(limit * 50 / 100)
+        return String(head) + "\n…\n" + String(tail)
+    }
+
+    /// What's in a photo, worked out on the device: printed text (OCR) and what the picture shows.
+    nonisolated static func describeOnDevice(_ image: UIImage) async -> String {
+        await Task.detached(priority: .userInitiated) {
+            guard let cg = image.cgImage else { return "" }
+            let text = VNRecognizeTextRequest()
+            text.recognitionLevel = .accurate
+            text.usesLanguageCorrection = true
+            let kinds = VNClassifyImageRequest()
+            let handler = VNImageRequestHandler(cgImage: cg, orientation: .up)
+            try? handler.perform([text, kinds])
+            let lines = (text.results ?? []).compactMap { $0.topCandidates(1).first?.string }
+            let labels = (kinds.results ?? []).filter { $0.confidence > 0.25 }.prefix(8)
+                .map { "\($0.identifier.replacingOccurrences(of: "_", with: " ")) (\(Int($0.confidence * 100))%)" }
+            var out = ""
+            if !labels.isEmpty { out += "Looks like: " + labels.joined(separator: ", ") + "\n" }
+            if !lines.isEmpty { out += "Printed text:\n" + lines.prefix(120).joined(separator: "\n") }
+            return out
+        }.value
     }
 
     func decode<T: Decodable>(_ type: T.Type, from text: String) throws -> T {

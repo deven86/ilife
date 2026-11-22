@@ -21,11 +21,26 @@ struct AISettingsView: View {
     var body: some View {
         Form {
             Section {
+                Picker("AI engine", selection: $ai.engine) {
+                    ForEach(AIService.Engine.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.inline)
+                .labelsHidden()
+                if ai.engine == .apple && !AIService.appleAvailable {
+                    Label(AIService.appleUnavailableReason, systemImage: "exclamationmark.triangle.fill").font(.caption).foregroundStyle(.orange)
+                }
+            } header: { Text("AI engine") } footer: {
+                Text(ai.engine == .apple
+                     ? "Free and private: Apple's on-device model runs on this iPhone, works offline, and nothing is sent anywhere. Photos (meals, reports, InBody) are read on the device first. For harder jobs, Claude is more accurate."
+                     : "Claude is more capable, especially with photos, but needs your own Anthropic key and costs a rupee or two per request. Only what a feature needs is sent to Anthropic.")
+            }
+
+            Section {
                 Label(ai.isOn ? "AI mode is on" : "AI mode is off", systemImage: ai.isOn ? "sparkles" : "moon.zzz")
                     .foregroundStyle(ai.isOn ? Color.green : Color.secondary)
-                Toggle("AI mode", isOn: $ai.enabled).disabled(!ai.hasKey)
+                Toggle("AI mode", isOn: $ai.enabled).disabled(ai.engine == .claude ? !ai.hasKey : !AIService.appleAvailable)
             } footer: {
-                Text(ai.hasKey ? "With AI mode off, iLife makes no AI requests at all and everything else keeps working." : "Add your API key below to turn AI mode on.")
+                Text("With AI mode off, iLife makes no AI requests at all and everything else keeps working.")
             }
 
             if ai.isOn {
@@ -50,6 +65,7 @@ struct AISettingsView: View {
                 }
             }
 
+            if ai.engine == .claude {
             Section {
                 SecureField(ai.hasKey ? "Key saved — paste a new one to replace" : "Paste your Anthropic API key (sk-ant-…)", text: $key)
                     .textInputAutocapitalization(.never).autocorrectionDisabled()
@@ -74,6 +90,7 @@ struct AISettingsView: View {
                 }
                 TextField("Model ID", text: $ai.model).textInputAutocapitalization(.never).autocorrectionDisabled().font(.caption)
             }
+            }
 
             Section {
                 Button {
@@ -88,12 +105,21 @@ struct AISettingsView: View {
                 } label: {
                     HStack { Text("Test connection"); if testing { Spacer(); ProgressView() } }
                 }
-                .disabled(!ai.hasKey || testing)
+                .disabled(!ai.isOn || testing)
                 if let result { Text(result).font(.caption).foregroundStyle(result.hasPrefix("✓") ? .green : .orange) }
             }
 
+            Section {
+                Label("“Hey Siri, log water in iLife”", systemImage: "drop.fill")
+                Label("“Hey Siri, log my weight in iLife”", systemImage: "scalemass.fill")
+                Label("“Hey Siri, how's my day in iLife”", systemImage: "sun.max.fill")
+                Label("“Hey Siri, ask iLife coach”", systemImage: "sparkles")
+            } header: { Text("Siri") } footer: {
+                Text("These work hands-free, on your own records. Find more in the Shortcuts app.")
+            }
+
             Section("Privacy") {
-                Text("When you use an AI feature, only what that feature needs is sent to Anthropic's API: the InBody image, the meal photo, or — for Coach — a summary of your recent activity, food totals, weight and goals. Your name, phone, email, medical documents and photos in Transformation are never sent. Nothing is sent unless you tap an AI button.")
+                Text(ai.engine == .apple ? "With Apple Intelligence, everything is worked out on this device — nothing is sent anywhere." : "When you use an AI feature, only what that feature needs is sent to Anthropic's API: the InBody image, the meal photo, or — for Coach — a summary of your recent activity, food totals, weight and goals. Your name, phone, email, medical documents and photos in Transformation are never sent. Nothing is sent unless you tap an AI button.")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }

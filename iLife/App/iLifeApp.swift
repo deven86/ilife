@@ -8,38 +8,30 @@ struct iLifeApp: App {
     @StateObject private var health = HealthKitManager.shared
     @StateObject private var session = WorkoutSessionController.shared
     @StateObject private var music = MusicController.shared
+    @StateObject private var account = Account.shared
+    @StateObject private var data = AppData.shared
     @Environment(\.scenePhase) private var scenePhase
 
-    let container: ModelContainer
-
     init() {
-        let schema = Schema(ILifeSchema.models)
-        // On-device only. App Store guideline 5.1.3(ii): apps may not store personal health
-        // information in iCloud. Same store file as before, so existing data is kept.
-        if ScreenshotMode.isOn {
-            ScreenshotMode.prepareDefaults()
-            let mem = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
-            container = try! ModelContainer(for: schema, configurations: mem)
-            MainActor.assumeIsolated {
-                ScreenshotMode.seed(container.mainContext)
-                ScreenshotMode.fakeHealth(HealthKitManager.shared)
+        // Each Apple ID has its own database (Account.swift). Nothing opens until someone signs in.
+        MainActor.assumeIsolated {
+            if ScreenshotMode.isOn {
+                ScreenshotMode.prepareDefaults()
+                AppData.shared.openScreenshots()
+            } else {
+                AppData.shared.openIfSignedIn()
             }
-            return
-        }
-        let local = ModelConfiguration(schema: schema, cloudKitDatabase: .none)
-        container = try! ModelContainer(for: schema, configurations: local)
-        MediaStore.shared.attach(container)
-        AICoordinator.shared.attach(container)
-        AICoordinator.shared.scheduleNotifications()
-        if UserDefaults.standard.bool(forKey: "healthConnected") {
-            HealthKitManager.shared.enableBackgroundWorkoutDetection(container: container)
         }
     }
 
     var body: some Scene {
         WindowGroup {
             ZStack {
-                RootView()
+                if let c = data.container {
+                    RootView().modelContainer(c).id(data.generation)
+                } else {
+                    SignInFlow()
+                }
                 CelebrationOverlay()
                 if lock.lockEnabled && !lock.isUnlocked {
                     LockScreenView().transition(.opacity)
@@ -54,7 +46,6 @@ struct iLifeApp: App {
             .tint(theme.current.accent)
             .preferredColorScheme(theme.current.colorScheme)
         }
-        .modelContainer(container)
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .background:
@@ -62,6 +53,7 @@ struct iLifeApp: App {
                 if !session.isActive { lock.lock() }
             case .active:
                 Task {
+                    if !ScreenshotMode.isOn { await account.checkStillAuthorized() }
                     await health.refreshToday()
                     if lock.isUnlocked || !lock.lockEnabled { await AICoordinator.shared.appBecameActive() }
                 }

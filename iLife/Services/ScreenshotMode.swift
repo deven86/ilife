@@ -15,6 +15,7 @@ enum ScreenshotMode {
     static func prepareDefaults() {
         let d = UserDefaults.standard
         d.set(true, forKey: "onboarded")
+        d.set(true, forKey: Account.scoped("onboarded"))
         d.set(false, forKey: "lockEnabled")
         d.set("Rahul", forKey: "userName")
         d.set("", forKey: Member.key)

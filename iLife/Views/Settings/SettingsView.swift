@@ -10,7 +10,7 @@ struct SettingsView: View {
     @EnvironmentObject var music: MusicController
     @Environment(\.modelContext) private var context
     @MemberQuery private var profiles: [HealthProfile]
-    @AppStorage("userName") private var userName = "Devendra"
+    @AppStorage("userName") private var userName = ""
     @State private var wallpaperItem: PhotosPickerItem?
     @State private var showPlaylists = false
 
@@ -105,11 +105,13 @@ struct SettingsView: View {
             }
 
             Section {
-                HStack { Label("Your data", systemImage: "lock.iphone"); Spacer(); Text("On this device").foregroundStyle(.secondary) }
+                NavigationLink { AccountView() } label: {
+                    HStack { Label("Account & iCloud", systemImage: "person.badge.key.fill"); Spacer(); Text(CloudChoice.isOn ? "iCloud" : "This device").foregroundStyle(.secondary) }
+                }
                 NavigationLink { ExportCenterView() } label: { Label("Export a copy", systemImage: "square.and.arrow.up") }
                 NavigationLink { HealthExchangeView() } label: { Label("iTeam ⇄ iLife (export / import)", systemImage: "arrow.left.arrow.right.circle") }
             } header: { Text("Privacy & storage") } footer: {
-                Text("Your health records never leave this device — there is no iLife server and nothing is synced to iCloud. They are included in your encrypted iPhone backup. Export a copy any time.")
+                Text("Your records belong to your Apple ID. There is no iLife server: they stay on this device, and in your private iCloud only if you turn that on.")
             }
 
             Section {

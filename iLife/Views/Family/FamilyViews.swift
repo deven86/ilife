@@ -31,7 +31,7 @@ struct MemberPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \HealthProfile.memberOrder) private var profiles: [HealthProfile]
     @ObservedObject private var store = MemberStore.shared
-    @AppStorage("userName") private var userName = "Devendra"
+    @AppStorage("userName") private var userName = ""
     @State private var adding = false
 
     private var me: HealthProfile? { profiles.first { $0.memberUID.isEmpty } }
