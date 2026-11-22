@@ -5,6 +5,11 @@ on:
       capabilities:
         description: 'Also turn on missing App ID capabilities (yes/no)'
         default: 'no'
+      clean_group:
+        description: 'Group to empty of builds other than keep_version'
+        default: ''
+      keep_version:
+        default: '1.8.0'
 permissions:
   contents: read
 jobs:
@@ -21,4 +26,5 @@ jobs:
           if grep -q "BEGIN PRIVATE KEY" "$RUNNER_TEMP/k/raw"; then cp "$RUNNER_TEMP/k/raw" "$RUNNER_TEMP/k/a.p8"; else tr -d ' \r\n' < "$RUNNER_TEMP/k/raw" | base64 --decode > "$RUNNER_TEMP/k/a.p8"; fi
           export ASC_KEY_PATH="$RUNNER_TEMP/k/a.p8"; pip install --quiet pyjwt cryptography requests
           if [ "${{ inputs.capabilities }}" = "yes" ]; then python3 ci/capabilities.py; fi
+          if [ -n "${{ inputs.clean_group }}" ]; then GROUP="${{ inputs.clean_group }}" KEEP_VERSION="${{ inputs.keep_version }}" python3 ci/group_clean.py; fi
           python3 ci/asc_status.py; rm -rf "$RUNNER_TEMP/k"
