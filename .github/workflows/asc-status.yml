@@ -1,5 +1,10 @@
 name: App Store status (read-only)
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+    inputs:
+      capabilities:
+        description: 'Also turn on missing App ID capabilities (yes/no)'
+        default: 'no'
 permissions:
   contents: read
 jobs:
@@ -15,4 +20,5 @@ jobs:
           mkdir -p "$RUNNER_TEMP/k"; printf '%s' "${{ secrets.ASC_KEY_P8_BASE64 }}" > "$RUNNER_TEMP/k/raw"
           if grep -q "BEGIN PRIVATE KEY" "$RUNNER_TEMP/k/raw"; then cp "$RUNNER_TEMP/k/raw" "$RUNNER_TEMP/k/a.p8"; else tr -d ' \r\n' < "$RUNNER_TEMP/k/raw" | base64 --decode > "$RUNNER_TEMP/k/a.p8"; fi
           export ASC_KEY_PATH="$RUNNER_TEMP/k/a.p8"; pip install --quiet pyjwt cryptography requests
+          if [ "${{ inputs.capabilities }}" = "yes" ]; then python3 ci/capabilities.py; fi
           python3 ci/asc_status.py; rm -rf "$RUNNER_TEMP/k"
