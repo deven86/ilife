@@ -6,9 +6,10 @@ T = jwt.encode({"iss": E["ASC_ISSUER_ID"], "iat": n, "exp": n + 1100, "aud": "ap
 H = {"Authorization": f"Bearer {T}", "Content-Type": "application/json"}
 aid = requests.get(API + "/apps?filter[bundleId]=com.jondhale.ilife", headers=H).json()["data"][0]["id"]
 g = next(x for x in requests.get(API + f"/apps/{aid}/betaGroups?limit=50", headers=H).json()["data"] if x["attributes"]["name"] == E["GROUP"])
-builds = requests.get(API + f"/betaGroups/{g['id']}/builds?limit=50&include=preReleaseVersion", headers=H).json()
-ver = {x["id"]: x["attributes"]["version"] for x in builds.get("included", []) if x["type"] == "preReleaseVersions"}
-drop = [b["id"] for b in builds["data"] if ver.get(b["relationships"]["preReleaseVersion"]["data"]["id"]) != E.get("KEEP_VERSION")]
+builds = requests.get(API + f"/betaGroups/{g['id']}/builds?limit=50", headers=H).json().get("data", [])
+def version(bid):
+    return requests.get(API + f"/builds/{bid}/preReleaseVersion", headers=H).json().get("data", {}).get("attributes", {}).get("version")
+drop = [b["id"] for b in builds if version(b["id"]) != E.get("KEEP_VERSION")]
 if drop:
     r = requests.delete(API + f"/betaGroups/{g['id']}/relationships/builds", headers=H, data=json.dumps({"data": [{"type": "builds", "id": i} for i in drop]}))
     print(f"::notice title=group::removed {len(drop)} build(s) from {E['GROUP']} (HTTP {r.status_code})")
