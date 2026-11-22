@@ -78,7 +78,7 @@ struct SignInFlow: View {
                 CloudChoice.isOn = false
                 AppData.shared.open()
             }
-            choice(icon: "icloud.fill", title: "This device + my iCloud",
+            choice(icon: "icloud.fill", title: CloudChoice.serverReady ? "This device + my iCloud" : "This device + my iCloud (coming soon)",
                    text: "Synced to your private iCloud so your iPhone and iPad match, and kept if you change phones. Only your Apple ID can read it.") {
                 Task {
                     checking = true
@@ -95,7 +95,8 @@ struct SignInFlow: View {
                     AppData.shared.open()
                 }
             }
-            .disabled(checking)
+            .disabled(checking || !CloudChoice.serverReady)
+            .opacity(CloudChoice.serverReady ? 1 : 0.5)
             if checking { ProgressView() }
             Text("You can change this any time in More → Account.").font(.caption).foregroundStyle(.secondary)
         }

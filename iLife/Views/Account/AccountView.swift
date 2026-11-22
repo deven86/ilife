@@ -34,8 +34,9 @@ struct AccountView: View {
                 Toggle(isOn: Binding(get: { cloud }, set: { newValue in
                     if newValue { Task { await turnOn() } } else { confirmCloudOff = true }
                 })) {
-                    Label("Sync with my iCloud", systemImage: "icloud.fill")
+                    Label(CloudChoice.serverReady ? "Sync with my iCloud" : "Sync with my iCloud (coming soon)", systemImage: "icloud.fill")
                 }
+                .disabled(!CloudChoice.serverReady)
                 if let p = data.cloudProblem { Text(p).font(.caption).foregroundStyle(.orange) }
                 if let message { Text(message).font(.caption).foregroundStyle(.orange) }
             } header: { Text("Storage") } footer: {

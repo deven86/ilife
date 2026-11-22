@@ -86,9 +86,12 @@ final class Account: ObservableObject {
 /// device's iCloud, so two people sharing an iPad never mix their records in one iCloud.
 enum CloudChoice {
     static let containerID = "iCloud.group.com.jondhale.ilife"
+    /// Flip to true once the CloudKit schema is deployed to Production (cloudkit-schema workflow +
+    /// "Deploy Schema Changes"). Until then iCloud can't store iLife records, so the option stays off.
+    static let serverReady = false
 
     static var isOn: Bool {
-        get { UserDefaults.standard.bool(forKey: Account.scoped("icloud")) }
+        get { serverReady && UserDefaults.standard.bool(forKey: Account.scoped("icloud")) }
         set {
             UserDefaults.standard.set(newValue, forKey: Account.scoped("icloud"))
             if newValue { UserDefaults.standard.set(Account.currentID, forKey: "icloud.owner") }
