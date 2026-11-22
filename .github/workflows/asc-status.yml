@@ -1,0 +1,18 @@
+name: App Store status (read-only)
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+    steps:
+      - uses: actions/checkout@v5
+      - run: |
+          mkdir -p "$RUNNER_TEMP/k"; printf '%s' "${{ secrets.ASC_KEY_P8_BASE64 }}" > "$RUNNER_TEMP/k/raw"
+          if grep -q "BEGIN PRIVATE KEY" "$RUNNER_TEMP/k/raw"; then cp "$RUNNER_TEMP/k/raw" "$RUNNER_TEMP/k/a.p8"; else tr -d ' \r\n' < "$RUNNER_TEMP/k/raw" | base64 --decode > "$RUNNER_TEMP/k/a.p8"; fi
+          export ASC_KEY_PATH="$RUNNER_TEMP/k/a.p8"; pip install --quiet pyjwt cryptography requests
+          python3 ci/asc_status.py; rm -rf "$RUNNER_TEMP/k"
