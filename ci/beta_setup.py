@@ -74,6 +74,12 @@ else:
 # 4) External group with public link
 limit = int(E.get("LIMIT", "4"))
 groups = call("GET", f"/apps/{aid}/betaGroups?limit=200")["data"]
+# Close old links (people already in those groups keep their access only if CLOSE_OLD isn't set).
+for old in [x.strip() for x in E.get("CLOSE_OLD", "").split(",") if x.strip()]:
+    og = next((x for x in groups if x["attributes"]["name"] == old), None)
+    if og and og["attributes"].get("publicLinkEnabled"):
+        call("PATCH", f"/betaGroups/{og['id']}", {"data": {"type": "betaGroups", "id": og["id"], "attributes": {"publicLinkEnabled": False}}})
+        note("closed", f"public link of '{old}' switched off")
 g = next((x for x in groups if x["attributes"]["name"] == E["GROUP"]), None)
 attrs = {"publicLinkEnabled": True, "publicLinkLimitEnabled": True, "publicLinkLimit": limit, "feedbackEnabled": True}
 if g:

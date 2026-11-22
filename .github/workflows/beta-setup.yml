@@ -13,6 +13,12 @@ on:
       limit:
         description: "Max testers via public link"
         default: "4"
+      group:
+        description: "External group name (a new name gives a new link)"
+        default: "iLife Testers"
+      close_old:
+        description: "Comma-separated groups whose public link to switch off"
+        default: ""
 
 permissions:
   contents: read
@@ -43,8 +49,9 @@ jobs:
           LIMIT: ${{ inputs.limit }}
           FIRST: Devendra
           LAST: Jondhale
-          GROUP: iLife Testers
-          PRIVACY_URL: https://docs.google.com/document/d/1M7z3H1RdtLkgK7slRbpWKiJEVRqxNnkZKtGxfVPMuFE/view
+          GROUP: ${{ inputs.group }}
+          CLOSE_OLD: ${{ inputs.close_old }}
+          PRIVACY_URL: https://docs.google.com/document/d/13UFj2pC7G9h39CxLby--7_dpnnKf_XJTFRJBcS-d_Gk/view
           DESCRIPTION: >-
             iLife is a private health, workout and diet tracker for iPhone and iPad. Log meals, water, workouts and body
             measurements, sync with Apple Health and Apple Watch, follow workout plans, track supplements and prescribed
@@ -52,13 +59,15 @@ jobs:
             gym memberships and expenses, do guided meditation, and track family members separately. Optional AI features
             use your own API key. All data stays on your device and your own iCloud.
           WHATS_NEW: >-
-            Please try: set up your profile, connect Apple Health, log food and water, start a workout, add a supplement or
-            medicine with a photo, log an injury with photos and a bill, add a family member and switch between people,
-            try a guided meditation, and share a daily report. Report anything that crashes or looks wrong using TestFlight feedback.
+            New in 1.8: sign in with your own Apple ID and create your own profile — your records are separate and private
+            to you. Free on-device AI with Apple Intelligence (iPhone 15 Pro or newer), and Siri: "log water in iLife",
+            "how's my day in iLife". Please try: sign in, set up your profile, connect Apple Health, log food, water and a
+            workout, add a medicine with a photo, add a family member, ask the coach. Report problems with TestFlight feedback.
           REVIEW_NOTES: >-
-            No login or account is needed. All data is stored locally and in the user's private iCloud; there is no server.
-            Apple Health access is optional. AI features are off by default and require the user's own Anthropic API key,
-            so they can be skipped during review. Face ID lock is optional (Settings).
+            Sign in with Apple is required and works with any Apple ID (no demo account needed); each Apple ID has its own
+            separate records. There is no server: data stays on the device, and in the user's private iCloud only if they turn
+            that on. Apple Health access is optional. AI uses Apple Intelligence on-device by default; Claude needs the user's
+            own key and can be skipped. Face ID lock is optional (More > Security).
         run: |
           pip install --quiet pyjwt cryptography requests
           python3 ci/beta_setup.py

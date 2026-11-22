@@ -1,7 +1,8 @@
-No login or account is needed. There is no server: all data is stored only on the device (no iCloud storage).
+Sign in with Apple is required and works with any Apple ID — no demo account is needed. Each Apple ID gets its own separate records on the device. There is no server: data stays on the device, and goes to the user's private iCloud only if they turn that on in More > Account & iCloud.
 
-Apple Health: optional. Connect it from the onboarding screen or More > Connected sources. It is used to show steps, sleep, heart rate and workouts, and to save meals, water, workouts and mindful minutes. Workouts recorded on Apple Watch are imported from Apple Health; there is no separate watchOS app.
+Apple Health is optional. Connect it during set-up or in More > Connected sources. It is used to show steps, sleep, heart rate and workouts, and to save meals, water, workouts and mindful minutes. Workouts recorded on Apple Watch are imported from Apple Health; there is no separate watchOS app.
 
-AI features (More > Smart features) are off by default and need the user's own Anthropic API key, so they can be skipped during review. All other features work without them. Medicines, injuries and health events are the user's own records; the app does not give medical advice, and the AI is told never to change medicine doses.
+AI uses Apple Intelligence on the device by default; it is free and nothing is sent anywhere. Claude is an optional alternative that needs the user's own Anthropic key, so it can be skipped. The app does not give medical advice, and the AI is told never to change medicine doses.
 
-Family members: tap the profile photo on Home to add or switch people.
+Siri: "Log water in iLife", "How's my day in iLife".
+Family members: tap the profile photo on Home.

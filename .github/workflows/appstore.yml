@@ -6,7 +6,7 @@ on:
     inputs:
       version:
         description: "Version to release (must match an uploaded build)"
-        default: "1.7.0"
+        default: "1.8.0"
       phone:
         description: "Reviewer contact phone (masked in logs)"
         required: true
@@ -47,7 +47,7 @@ jobs:
           FIRST: Devendra
           LAST: Jondhale
           APP_NAME: iLife Health
-          PRIVACY_URL: https://docs.google.com/document/d/1M7z3H1RdtLkgK7slRbpWKiJEVRqxNnkZKtGxfVPMuFE/view
+          PRIVACY_URL: https://docs.google.com/document/d/13UFj2pC7G9h39CxLby--7_dpnnKf_XJTFRJBcS-d_Gk/view
           SUPPORT_URL: https://docs.google.com/document/d/1tYJ_zH2jcwe2nnaO2qhmfLEruEvMlaDnRgcoIw13IJw/view
         run: |
           pip install --quiet pyjwt cryptography requests
