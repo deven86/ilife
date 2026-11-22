@@ -13,5 +13,10 @@ for g in get(f"/apps/{aid}/betaGroups?limit=50")["data"]:
 for b in get(f"/builds?filter[app]={aid}&sort=-uploadedDate&limit=4&include=buildBetaDetail,preReleaseVersion")["data"]:
     d = get(f"/builds/{b['id']}/buildBetaDetail")["data"]["attributes"]
     print("::notice title=Build::", b["attributes"]["version"], b["attributes"]["processingState"], "external:", d.get("externalBuildState"), "internal:", d.get("internalBuildState"))
+pv = get(f"/preReleaseVersions?filter[app]={aid}&filter[version]=1.8.0")
+for v in pv.get("data", []):
+    for b in get(f"/preReleaseVersions/{v['id']}/builds").get("data", []):
+        print("::notice title=1.8.0 build::", b["attributes"]["version"], b["attributes"]["processingState"], b["attributes"].get("uploadedDate"))
+if not pv.get("data"): print("::notice title=1.8.0::no pre-release version yet", json.dumps(pv)[:200])
 for c in get(f"/bundleIds?filter[identifier]=com.jondhale.ilife&include=bundleIdCapabilities").get("included", []):
     print("::notice title=Capability::", c["attributes"]["capabilityType"])
