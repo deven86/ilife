@@ -52,11 +52,12 @@ note("review contact", "contact details set")
 # 3) Newest processed build
 build = None
 for _ in range(30):
-    b = call("GET", f"/builds?filter[app]={aid}&sort=-uploadedDate&limit=1&include=preReleaseVersion")
+    vf = f"&filter[preReleaseVersion.version]={E['BUILD_VERSION']}" if E.get("BUILD_VERSION") else ""
+    b = call("GET", f"/builds?filter[app]={aid}{vf}&sort=-uploadedDate&limit=1&include=preReleaseVersion")
     if b and b["data"]:
         build = b["data"][0]
         if build["attributes"]["processingState"] == "VALID": break
-        print("Build still processing…"); time.sleep(30)
+    print("Build not ready yet…"); time.sleep(30)
 if not build or build["attributes"]["processingState"] != "VALID":
     print("::error title=build::No processed build found"); sys.exit(1)
 ver = next((x["attributes"]["version"] for x in b.get("included", []) if x["type"] == "preReleaseVersions"), "?")
@@ -90,8 +91,12 @@ else:
 gid = g["id"]
 note("group", f"{E['GROUP']} (external, public link limit {limit})")
 
-# 5) Add build to group
+# 5) Add build to group (and take older builds out of it, so new testers get this one)
 call("POST", f"/betaGroups/{gid}/relationships/builds", {"data": [{"type": "builds", "id": bid}]})
+others = [x["id"] for x in (call("GET", f"/betaGroups/{gid}/builds?limit=50") or {}).get("data", []) if x["id"] != bid]
+if others:
+    call("DELETE", f"/betaGroups/{gid}/relationships/builds", {"data": [{"type": "builds", "id": o} for o in others]})
+    note("group", f"removed {len(others)} older build(s) from the group")
 
 # 6) Submit for Beta App Review (409 = already submitted / approved)
 st = call("GET", f"/builds/{bid}/buildBetaDetail")

@@ -16,6 +16,9 @@ on:
       group:
         description: "External group name (a new name gives a new link)"
         default: "iLife Testers"
+      build_version:
+        description: "Version whose newest build to use (empty = newest of any)"
+        default: ""
       close_old:
         description: "Comma-separated groups whose public link to switch off"
         default: ""
@@ -51,6 +54,7 @@ jobs:
           LAST: Jondhale
           GROUP: ${{ inputs.group }}
           CLOSE_OLD: ${{ inputs.close_old }}
+          BUILD_VERSION: ${{ inputs.build_version }}
           PRIVACY_URL: https://docs.google.com/document/d/13UFj2pC7G9h39CxLby--7_dpnnKf_XJTFRJBcS-d_Gk/view
           DESCRIPTION: >-
             iLife is a private health, workout and diet tracker for iPhone and iPad. Log meals, water, workouts and body
